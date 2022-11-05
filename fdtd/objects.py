@@ -18,6 +18,7 @@ from .typing_ import Tensorlike, ListOrSlice
 from .grid import Grid
 from .backend import backend as bd
 from . import constants as const
+import numpy as np
 
 
 ## Object
@@ -260,6 +261,53 @@ class AnisotropicObject(Object):
                 bd.reshape(curl_H[loc], (-1, 3, 1)),
             ),
             (self.Nx, self.Ny, self.Nz, 3),
+        )
+
+    def update_H(self, curl_E):
+        """custom update equations for inside the anisotropic object
+
+        Args:
+            curl_E: the curl of electric field in the grid.
+
+        """
+
+class NonLinearObject(Object):
+    """ An object with non-linear permittivity """
+
+    def _register_grid(
+        self, grid: Grid, x: slice = None, y: slice = None, z: slice = None
+    ):
+        """Register a grid to the object
+
+        Args:
+            grid: the grid to register the object into
+            x: the x-location of the object in the grid
+            y: the y-location of the object in the grid
+            z: the z-location of the object in the grid
+        """
+        super()._register_grid(grid=grid, x=x, y=y, z=z)
+        print('Creating nonlinear object.')
+
+    def update_E(self, curl_H):
+        """custom update equations for inside the anisotropic object
+
+        Args:
+            curl_H: the curl of magnetic field in the grid.
+
+        """
+        loc = (self.x, self.y, self.z)
+        grid_energy = bd.sum(self.grid.E[loc] ** 2 + self.grid.H[loc] ** 2, -1)
+        #print(np.max(grid_energy[loc]))
+        #print(self.inverse_permittivity.shape)
+        # * grid_energy[loc][...,np.newaxis]
+        lower_lim = 0.02
+        mask = grid_energy > lower_lim
+        #modifier = mask*(1.0 + 100*(grid_energy - lower_lim)) + (1-mask)
+        modifier = mask*(0.1) + (1-mask)
+        print(np.max(grid_energy))
+        print(np.max(modifier))
+        self.grid.E[loc] += (
+            self.grid.courant_number * self.inverse_permittivity * curl_H[loc] * modifier[...,np.newaxis]
         )
 
     def update_H(self, curl_E):
