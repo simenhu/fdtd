@@ -279,6 +279,8 @@ class LineSource:
         # if pulse
         if self.pulse:
             t1 = int(2 * pi / (self.frequency * self.hanning_dt / self.cycle))
+            print(2 * pi / (self.frequency * self.hanning_dt / self.cycle))
+            print(q, t1)
             if q < t1:
                 vect = self.profile * hanning(
                     self.frequency, q * self.hanning_dt, self.cycle
