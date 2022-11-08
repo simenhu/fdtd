@@ -1,7 +1,7 @@
 """ Selects the backend for the fdtd-package.
 
 The `fdtd` library allows to choose a backend. The ``numpy`` backend is the
-default one, but there are also several additional PyTorch backends:
+default one, but there are also several additional PyTorch and TensorFlow backends:
 
     - ``numpy`` (defaults to float64 arrays)
     - ``torch`` (defaults to float64 tensors)
@@ -10,6 +10,8 @@ default one, but there are also several additional PyTorch backends:
     - ``torch.cuda`` (defaults to float64 tensors)
     - ``torch.cuda.float32``
     - ``torch.cuda.float64``
+    - ``tensorflow.float32``
+    - ``tensorflow.float64``
 
 For example, this is how to choose the `"torch"` backend: ::
 
@@ -38,6 +40,8 @@ backend_names = [
     dict(backends="torch.float64"),
     dict(backends="torch.cuda.float32"),
     dict(backends="torch.cuda.float64"),
+    dict(backends="tensorflow.float32"),
+    dict(backends="tensorflow.float64"),
 ]
 
 numpy_float_dtypes = {
@@ -63,6 +67,18 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
     TORCH_CUDA_AVAILABLE = False
+
+# TF Backends (and flags)
+try:
+    import tensorflow as tf
+    
+    # we need more precision for FDTD
+    TF_FLOAT_PRECISION = tf.float64 #TODO - use this for every instantiation of tensor.
+    TF_AVAILABLE = True
+    TF_CUDA_AVAILABLE =  tf.test.is_gpu_available()
+except ImportError:
+    TF_AVAILABLE = False
+    TF_CUDA_AVAILABLE = False
 
 
 # Base Class
@@ -336,6 +352,121 @@ if TORCH_AVAILABLE:
                     start, stop + 0.5 * float(endpoint) * delta, delta, device="cuda"
                 )
 
+# TF Backend
+if TF_AVAILABLE:
+    import tensorflow as tf
+
+    class TFBackend(Backend):
+        """TensorFlow Backend"""
+
+        # types
+        int = tf.int64
+        """ integer type for array"""
+
+        float = TF_FLOAT_PRECISION
+        """ floating type for array """
+
+        # methods #TODO - do we need to add precision here? Lambda?
+        asarray = staticmethod(tf.convert_to_tensor)
+        """ create an array """
+
+        exp = staticmethod(tf.exp)
+        """ exponential of all elements in array """
+
+        sin = staticmethod(tf.sin)
+        """ sine of all elements in array """
+
+        cos = staticmethod(tf.cos)
+        """ cosine of all elements in array """
+
+        sum = staticmethod(tf.reduce_sum)
+        """ sum elements in array """
+
+        max = staticmethod(tf.reduce_max)
+        """ max element in array """
+
+        stack = staticmethod(tf.stack)
+        """ stack multiple arrays """
+
+        #TODO - check if this is right!
+        @staticmethod
+        def transpose(arr, axes=None):
+            """transpose array by flipping two dimensions"""
+            if axes is None:
+                axes = tuple(range(len(arr.shape) - 1, -1, -1))
+            return arr.permute(*axes)
+
+        squeeze = staticmethod(tf.squeeze)
+        """ remove dim-1 dimensions """
+
+        ##TODO - check if this is right!
+        #broadcast_arrays = staticmethod(tf.broadcast_tensors)
+        #""" broadcast arrays """
+
+        broadcast_to = staticmethod(tf.broadcast_to)
+        """ broadcast array into shape """
+
+        reshape = staticmethod(tf.reshape)
+        """ reshape array into given shape """
+
+        ##TODO - check if this is right!
+        #bmm = staticmethod(tf.bmm)
+        #""" batch matrix multiply two arrays """
+
+        @staticmethod
+        def is_array(arr):
+            """check if an object is an array"""
+            # is this a reasonable implemenation?
+            return isinstance(arr, numpy.ndarray) or tf.is_tensor(arr)
+
+        def array(self, arr, dtype=None):
+            """create an array from an array-like sequence"""
+            if dtype is None:
+                dtype = TF_FLOAT_PRECISION
+            if tf.is_tensor(arr):
+                return tf.identity(arr)
+            return tf.convert_to_tensor(arr, dtype=dtype)
+
+        # constructors
+        ones = staticmethod(tf.ones)
+        """ create an array filled with ones """
+
+        zeros = staticmethod(tf.zeros)
+        """ create an array filled with zeros """
+
+        def linspace(self, start, stop, num=50, endpoint=True):
+            """create a linearly spaced array between two points"""
+            delta = (stop - start) / float(num - float(endpoint))
+            if not delta:
+                return self.array([start] * num)
+            #return torch.arange(start, stop + 0.5 * float(endpoint) * delta, delta)
+            return tf.convert_to_tensor(np.arange(start, stop + 0.5 * float(endpoint) * delta, delta), dtype=TF_FLOAT_PRECISION)
+
+        arange = staticmethod(tf.range)
+        """ create a range of values """
+
+        #TODO - check if this is right!
+        #pad = staticmethod(torch.nn.functional.pad)  # type: ignore
+        pad = staticmethod(tf.pad)  # type: ignore
+
+        fftfreq = staticmethod(numpy.fft.fftfreq)
+
+        fft = staticmethod(tf.signal.fft)  # type: ignore
+
+        divide = staticmethod(tf.divide)
+
+        exp = staticmethod(tf.exp)
+        # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        # The same warning applies here.
+        # <3 <3 <3 <3
+
+        def numpy(self, arr):
+            """convert the array to numpy array"""
+            if tf.is_tensor(arr):
+                return arr.numpy()
+            else:
+                return numpy.asarray(arr)
+
 
 ## Default Backend
 # this backend object will be used for all array/tensor operations.
@@ -367,6 +498,8 @@ def set_backend(name: str):
             - ``torch.cuda.float16``
             - ``torch.cuda.float32``
             - ``torch.cuda.float64``
+            - ``tf.float32``
+            - ``tf.float64``
 
     """
     # perform checks
@@ -378,6 +511,8 @@ def set_backend(name: str):
             "Do you have a GPU on your computer?\n"
             "Is PyTorch with cuda support installed?"
         )
+    if name.startswith("tf") and not TF_AVAILABLE:
+        raise RuntimeError("TensorFlow backend is not available. Is TensorFlow installed?")
 
     if name.count(".") == 0:
         dtype, device = "float64", "cpu"
@@ -398,7 +533,7 @@ def set_backend(name: str):
             backend.float = getattr(numpy, dtype)
         elif device == "cuda":
             raise ValueError(
-                "Device 'cuda' not available for numpy backend. Use 'torch' backend in stead."
+                "Device 'cuda' not available for numpy backend. Use 'torch' or 'tensorflow' backend instead."
             )
         else:
             raise ValueError(
@@ -415,6 +550,9 @@ def set_backend(name: str):
             raise ValueError(
                 "Unknown device '{device}'. Available devices: 'cpu', 'cuda'"
             )
+    elif name == "tensorflow":
+            backend.__class__ = TFBackend
+            backend.float = TF_FLOAT_PRECISION
     else:
         raise ValueError(
             "Unknown backend '{name}'. Available backends: 'numpy', 'torch'"
