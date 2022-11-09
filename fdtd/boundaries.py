@@ -7,6 +7,7 @@ Available Boundaries:
 
 """
 ## Imports
+import numpy as np
 
 # typing
 from .typing_ import Tensorlike, ListOrSlice, IntOrSlice
@@ -490,13 +491,15 @@ class _PMLXlow(PML):
 
     def _set_sigmaE(self):
         sigma = self._sigma(bd.arange(self.thickness - 0.5, -0.5, -1.0))
-        self.sigmaE = bd.zeros((self.thickness, self.grid.Ny, self.grid.Nz, 3))
+        self.sigmaE = np.zeros((self.thickness, self.grid.Ny, self.grid.Nz, 3))
         self.sigmaE[:, :, :, 0] = sigma[:, None, None]
+        self.sigmaE  = bd.array(self.sigmaE)
 
     def _set_sigmaH(self):
         sigma = self._sigma(bd.arange(self.thickness - 1.0, 0, -1.0))
-        self.sigmaH = bd.zeros((self.thickness, self.grid.Ny, self.grid.Nz, 3))
+        self.sigmaH = np.zeros((self.thickness, self.grid.Ny, self.grid.Nz, 3))
         self.sigmaH[:-1, :, :, 0] = sigma[:, None, None]
+        self.sigmaH = bd.array(self.sigmaH)
 
 
 class _PMLXhigh(PML):
@@ -513,13 +516,15 @@ class _PMLXhigh(PML):
 
     def _set_sigmaE(self):
         sigma = self._sigma(bd.arange(0.5, self.thickness + 0.5, 1.0))
-        self.sigmaE = bd.zeros((self.thickness, self.grid.Ny, self.grid.Nz, 3))
+        self.sigmaE = np.zeros((self.thickness, self.grid.Ny, self.grid.Nz, 3))
         self.sigmaE[:, :, :, 0] = sigma[:, None, None]
+        self.sigmaE = bd.array(self.sigmaE)
 
     def _set_sigmaH(self):
         sigma = self._sigma(bd.arange(1.0, self.thickness, 1.0))
-        self.sigmaH = bd.zeros((self.thickness, self.grid.Ny, self.grid.Nz, 3))
+        self.sigmaH = np.zeros((self.thickness, self.grid.Ny, self.grid.Nz, 3))
         self.sigmaH[:-1, :, :, 0] = sigma[:, None, None]
+        self.sigmaH = bd.array(self.sigmaH)
 
 
 class _PMLYlow(PML):
@@ -536,13 +541,15 @@ class _PMLYlow(PML):
 
     def _set_sigmaE(self):
         sigma = self._sigma(bd.arange(self.thickness - 0.5, -0.5, -1.0))
-        self.sigmaE = bd.zeros((self.grid.Nx, self.thickness, self.grid.Nz, 3))
+        self.sigmaE = np.zeros((self.grid.Nx, self.thickness, self.grid.Nz, 3))
         self.sigmaE[:, :, :, 1] = sigma[None, :, None]
+        self.sigmaE = bd.array(self.sigmaE)
 
     def _set_sigmaH(self):
         sigma = self._sigma(bd.arange(self.thickness - 1.0, 0, -1.0))
-        self.sigmaH = bd.zeros((self.grid.Nx, self.thickness, self.grid.Nz, 3))
+        self.sigmaH = np.zeros((self.grid.Nx, self.thickness, self.grid.Nz, 3))
         self.sigmaH[:, :-1, :, 1] = sigma[None, :, None]
+        self.sigmaH = bd.array(self.sigmaH)
 
 
 class _PMLYhigh(PML):
@@ -559,13 +566,15 @@ class _PMLYhigh(PML):
 
     def _set_sigmaE(self):
         sigma = self._sigma(bd.arange(0.5, self.thickness + 0.5, 1.0))
-        self.sigmaE = bd.zeros((self.grid.Nx, self.thickness, self.grid.Nz, 3))
+        self.sigmaE = np.zeros((self.grid.Nx, self.thickness, self.grid.Nz, 3))
         self.sigmaE[:, :, :, 1] = sigma[None, :, None]
+        self.sigmaE = bd.array(self.sigmaE)
 
     def _set_sigmaH(self):
         sigma = self._sigma(bd.arange(1.0, self.thickness, 1.0))
-        self.sigmaH = bd.zeros((self.grid.Nx, self.thickness, self.grid.Nz, 3))
+        self.sigmaH = np.zeros((self.grid.Nx, self.thickness, self.grid.Nz, 3))
         self.sigmaH[:, :-1, :, 1] = sigma[None, :, None]
+        self.sigmaH = bd.array(self.sigmaH)
 
 
 class _PMLZlow(PML):
