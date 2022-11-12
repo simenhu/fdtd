@@ -29,7 +29,7 @@ The ``cuda`` backends are only available for computers with a GPU.
 ## Imports
 
 # Numpy Backend
-import numpy  # numpy has to be present
+import numpy # numpy has to be present
 from functools import wraps
 
 # used only by test runner.
@@ -40,6 +40,7 @@ backend_names = [
     dict(backends="torch.float64"),
     dict(backends="torch.cuda.float32"),
     dict(backends="torch.cuda.float64"),
+    dict(backends="tensorflow"),
     dict(backends="tensorflow.float32"),
     dict(backends="tensorflow.float64"),
 ]
@@ -74,6 +75,7 @@ try:
     
     # we need more precision for FDTD
     TF_FLOAT_PRECISION = tf.float64 #TODO - use this for every instantiation of tensor.
+    #TF_FLOAT_PRECISION = tf.float32 #TODO - use this for every instantiation of tensor.
     TF_AVAILABLE = True
     TF_CUDA_AVAILABLE =  tf.test.is_gpu_available()
 except ImportError:
@@ -440,7 +442,7 @@ if TF_AVAILABLE:
             if not delta:
                 return self.array([start] * num)
             #return torch.arange(start, stop + 0.5 * float(endpoint) * delta, delta)
-            return tf.convert_to_tensor(np.arange(start, stop + 0.5 * float(endpoint) * delta, delta), dtype=TF_FLOAT_PRECISION)
+            return tf.convert_to_tensor(numpy.arange(start, stop + 0.5 * float(endpoint) * delta, delta), dtype=TF_FLOAT_PRECISION)
 
         arange = staticmethod(tf.range)
         """ create a range of values """

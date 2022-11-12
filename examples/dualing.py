@@ -22,6 +22,8 @@ SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 # create FDTD Grid
 
 # In[4]:
+x = [v for v in bd.array(bd.linspace(0, 100, 10, endpoint=False), bd.int)]
+print(x)
 
 
 grid = fdtd.Grid(
