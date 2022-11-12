@@ -58,12 +58,15 @@ def format_imgs(data, output, rows=3):
 batch_size_train = 64 # We use a small batch size here for training
 batch_size_test = 1024 #
 
+# # define how image transformed
+# image_transform = torchvision.transforms.Compose([
+#                                torchvision.transforms.ToTensor(),
+#                                torchvision.transforms.Normalize(
+#                                  (0.1307,), (0.3081,))
+#                              ])
 # define how image transformed
 image_transform = torchvision.transforms.Compose([
-                               torchvision.transforms.ToTensor(),
-                               torchvision.transforms.Normalize(
-                                 (0.1307,), (0.3081,))
-                             ])
+                               torchvision.transforms.ToTensor()])
 #image datasets
 train_dataset = torchvision.datasets.MNIST('dataset/', 
                                            train=True, 
@@ -107,22 +110,23 @@ class AutoEncoder(nn.Module):
         self.conv4 = nn.Conv2d(10,  1, kernel_size=5, stride=1, padding=(2,2))
     def forward(self, x):
         x = self.conv1(x)
-        x = F.relu(x)
+        x = torch.relu(x)
         x = self.conv2(x)
-        x = F.relu(x)
+        x = torch.relu(x)
         x = self.conv3(x)
-        x = F.relu(x)
+        x = torch.relu(x)
         x = self.conv4(x)
-        x = F.relu(x)
+        #x = torch.relu(x)
         return torch.sigmoid(x)
 
 ## create model and optimizer
-learning_rate = 0.01
+learning_rate = 0.001
 momentum = 0.5
 device = "cuda"
 model = AutoEncoder().to(device) #using cpu here
 optimizer = optim.SGD(model.parameters(), lr=learning_rate,
                       momentum=momentum)
+mse = torch.nn.MSELoss(reduce=False)
 
 
 def train(model, device, train_loader, optimizer, epoch, log_interval=10000):
@@ -133,7 +137,10 @@ def train(model, device, train_loader, optimizer, epoch, log_interval=10000):
         data, label = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.mse_loss(output, data)
+        loss = torch.sum(mse(output, data))
+        #loss = mse(output, data)
+        #print(data)
+        print('Training stats: ', torch.mean(data), torch.mean(output))
         loss.backward()
         optimizer.step()
         counter += 1
@@ -147,7 +154,10 @@ def test(model, device, test_loader):
         for idx, (data, target) in enumerate(test_loader):
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += F.mse_loss(output, data, reduction='sum').item() # sum up batch loss
+            print('Test stats: ', torch.mean(data), torch.mean(output))
+            print('test loss: ', mse(output, data).shape)
+            test_loss += torch.sum(mse(output, data))
+            #test_loss += np.sum(mse(output, data).item().detach().cpu().numpy()) # sum up batch loss
             # Display the images
             img = format_imgs(data, output)
             if(idx == 0):
