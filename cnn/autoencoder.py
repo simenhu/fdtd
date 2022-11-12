@@ -3,7 +3,7 @@ import torch
 import torchvision
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
-import cv2
+#import cv2
 import torchvision.transforms.functional as F
 import torch.nn as nn
 import torch.optim as optim
