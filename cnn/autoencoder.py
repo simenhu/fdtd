@@ -1,19 +1,54 @@
-# Task
-# Our task is simple, recognize handwritten digits. We will use MNIST dataset for this tutorial.
-# 
-
-# # Import necessary library
-# In this tutorial, we are going to use pytorch, the cutting-edge deep learning framework to complete our task.
-
-# In[2]:
-
-
+import numpy as np
 import torch
 import torchvision
+from torchvision.utils import make_grid
+import matplotlib.pyplot as plt
+import cv2
+import torchvision.transforms.functional as F
+import torch.nn as nn
+import torch.optim as optim
+from tqdm import tqdm_notebook as tqdm
 
 
-# In[3]:
+plt.rcParams["savefig.bbox"] = 'tight'
 
+
+def show(imgs):
+    if not isinstance(imgs, list):
+        imgs = [imgs]
+    fig, axs = plt.subplots(ncols=len(imgs), squeeze=False)
+    for i, img in enumerate(imgs):
+        img = img.detach().cpu()
+        print(img.shape)
+        #img = F.to_pil_image(img)
+        axs[0, i].imshow(np.asarray(img))
+        axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+
+def img_norm(img):
+    '''
+    Normalizes an image's dynamic range to the interval (0,1)
+    '''
+    return (img - np.min(img)) / (np.max(img) - np.min(img))
+
+def format_imgs(data, output, rows=3):
+    '''
+    Assumes shape of (bs, chans, H, W)
+    '''
+    # Convert to numpy
+    data = data.detach().cpu().numpy()
+    output = output.detach().cpu().numpy()
+    # Normalize 
+    data = img_norm(data)
+    output = img_norm(output)
+    # Make an output of shape (rows*H, 2*W, 3)
+    img = np.zeros((rows*data.shape[2], 2*data.shape[3], 3))
+    for row in range(rows):
+        # Get the input img
+        img[row*data.shape[2]:(row+1)*data.shape[2], 0:data.shape[3], :] = np.transpose(data[row], (1,2,0))
+        # Get the output img
+        img[row*data.shape[2]:(row+1)*data.shape[2], data.shape[3]:2*data.shape[3], :] = np.transpose(output[row], (1,2,0))
+
+    return img
 
 ## Create dataloader, in PyTorch, we feed the trainer data with use of dataloader
 ## We create dataloader with dataset from torchvision, 
@@ -47,11 +82,6 @@ test_loader = torch.utils.data.DataLoader(test_dataset,
                                           shuffle=True)
 
 
-# In[64]:
-
-
-# import library
-import matplotlib.pyplot as plt
 # We can check the dataloader
 _, (example_datas, labels) = next(enumerate(test_loader))
 sample = example_datas[0][0]
@@ -63,23 +93,18 @@ print("Label: "+ str(labels[0]))
 # In[60]:
 
 
-## Now we can start to build our CNN model
-## We first import the pytorch nn module and optimizer
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 ## Then define the model class
 class AutoEncoder(nn.Module):
     def __init__(self):
-        super(CNN, self).__init__()
+        super(AutoEncoder, self).__init__()
         #input channel 1, output channel 10
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5, stride=1)
+        self.conv1 = nn.Conv2d( 1, 10, kernel_size=5, stride=1, padding=(2,2))
         #input channel 10, output channel 20
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5, stride=1)
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=5, stride=1, padding=(2,2))
         #input channel 20, output channel 10
-        self.conv3 = nn.Conv2d(10, 20, kernel_size=5, stride=1)
+        self.conv3 = nn.Conv2d(20, 10, kernel_size=5, stride=1, padding=(2,2))
         #input channel 10, output channel 3
-        self.conv4 = nn.Conv2d(20, 1, kernel_size=5, stride=1)
+        self.conv4 = nn.Conv2d(10,  1, kernel_size=5, stride=1, padding=(2,2))
     def forward(self, x):
         x = self.conv1(x)
         x = F.relu(x)
@@ -89,22 +114,17 @@ class AutoEncoder(nn.Module):
         x = F.relu(x)
         x = self.conv4(x)
         x = F.relu(x)
-        return F.sigmoid(x)
+        return torch.sigmoid(x)
 
 ## create model and optimizer
 learning_rate = 0.01
 momentum = 0.5
-device = "cpu"
-model = CNN().to(device) #using cpu here
+device = "cuda"
+model = AutoEncoder().to(device) #using cpu here
 optimizer = optim.SGD(model.parameters(), lr=learning_rate,
                       momentum=momentum)
 
 
-# In[78]:
-
-
-from tqdm import tqdm_notebook as tqdm
-##define train function
 def train(model, device, train_loader, optimizer, epoch, log_interval=10000):
     model.train()
     tk0 = tqdm(train_loader, total=int(len(train_loader)))
@@ -119,16 +139,21 @@ def train(model, device, train_loader, optimizer, epoch, log_interval=10000):
         counter += 1
         tk0.set_postfix(loss=(loss.item()*data.size(0) / (counter * train_loader.batch_size)))
 
-##define test function
 def test(model, device, test_loader):
     model.eval()
     test_loss = 0
     correct = 0
     with torch.no_grad():
-        for data, target in test_loader:
+        for idx, (data, target) in enumerate(test_loader):
             data, target = data.to(device), target.to(device)
             output = model(data)
             test_loss += F.mse_loss(output, data, reduction='sum').item() # sum up batch loss
+            # Display the images
+            img = format_imgs(data, output)
+            if(idx == 0):
+                plt.imshow(img)
+                plt.show()
+
     test_loss /= len(test_loader.dataset)
 
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
@@ -136,31 +161,10 @@ def test(model, device, test_loader):
         100. * correct / len(test_loader.dataset)))
 
 
-# In[79]:
 
 
 num_epoch = 10
 for epoch in range(1, num_epoch + 1):
-        train(model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
-
-
-# In[70]:
-
-
-# from torchsummary import summary
-# summary(model, (1, 28, 28))
-
-
-# In[71]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
+        train(model, device, train_loader, optimizer, epoch)
 
