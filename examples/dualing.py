@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 
 
 # ## Set Backend
-fdtd.set_backend("numpy")
+#fdtd.set_backend("numpy")
+fdtd.set_backend("torch")
 
 
 # ## Constants

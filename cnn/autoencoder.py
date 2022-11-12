@@ -12,18 +12,6 @@ from tqdm import tqdm_notebook as tqdm
 
 plt.rcParams["savefig.bbox"] = 'tight'
 
-
-def show(imgs):
-    if not isinstance(imgs, list):
-        imgs = [imgs]
-    fig, axs = plt.subplots(ncols=len(imgs), squeeze=False)
-    for i, img in enumerate(imgs):
-        img = img.detach().cpu()
-        print(img.shape)
-        #img = F.to_pil_image(img)
-        axs[0, i].imshow(np.asarray(img))
-        axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
-
 def img_norm(img):
     '''
     Normalizes an image's dynamic range to the interval (0,1)
@@ -101,13 +89,13 @@ class AutoEncoder(nn.Module):
     def __init__(self):
         super(AutoEncoder, self).__init__()
         #input channel 1, output channel 10
-        self.conv1 = nn.Conv2d( 1, 10, kernel_size=5, stride=1, padding=(2,2))
+        self.conv1 = nn.Conv2d( 1, 10, kernel_size=5, stride=1, padding='same')
         #input channel 10, output channel 20
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5, stride=1, padding=(2,2))
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=5, stride=1, padding='same')
         #input channel 20, output channel 10
-        self.conv3 = nn.Conv2d(20, 10, kernel_size=5, stride=1, padding=(2,2))
+        self.conv3 = nn.Conv2d(20, 10, kernel_size=5, stride=1, padding='same')
         #input channel 10, output channel 3
-        self.conv4 = nn.Conv2d(10,  1, kernel_size=5, stride=1, padding=(2,2))
+        self.conv4 = nn.Conv2d(10,  1, kernel_size=5, stride=1, padding='same')
     def forward(self, x):
         x = self.conv1(x)
         x = torch.relu(x)
@@ -116,11 +104,10 @@ class AutoEncoder(nn.Module):
         x = self.conv3(x)
         x = torch.relu(x)
         x = self.conv4(x)
-        #x = torch.relu(x)
         return torch.sigmoid(x)
 
 ## create model and optimizer
-learning_rate = 0.001
+learning_rate = 0.00001
 momentum = 0.5
 device = "cuda"
 model = AutoEncoder().to(device) #using cpu here
@@ -138,9 +125,6 @@ def train(model, device, train_loader, optimizer, epoch, log_interval=10000):
         optimizer.zero_grad()
         output = model(data)
         loss = torch.sum(mse(output, data))
-        #loss = mse(output, data)
-        #print(data)
-        print('Training stats: ', torch.mean(data), torch.mean(output))
         loss.backward()
         optimizer.step()
         counter += 1
@@ -154,10 +138,7 @@ def test(model, device, test_loader):
         for idx, (data, target) in enumerate(test_loader):
             data, target = data.to(device), target.to(device)
             output = model(data)
-            print('Test stats: ', torch.mean(data), torch.mean(output))
-            print('test loss: ', mse(output, data).shape)
             test_loss += torch.sum(mse(output, data))
-            #test_loss += np.sum(mse(output, data).item().detach().cpu().numpy()) # sum up batch loss
             # Display the images
             img = format_imgs(data, output)
             if(idx == 0):
@@ -169,8 +150,6 @@ def test(model, device, test_loader):
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
-
-
 
 
 num_epoch = 10
