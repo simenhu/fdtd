@@ -55,15 +55,14 @@ batch_size_test = 1024 #
 # define how image transformed
 image_transform = torchvision.transforms.Compose([
                                torchvision.transforms.ToTensor()])
-#image datasets
-train_dataset = torchvision.datasets.MNIST('dataset/', 
+train_dataset = torchvision.datasets.CIFAR10('cifar10/', 
                                            train=True, 
                                            download=True,
                                            transform=image_transform)
-test_dataset = torchvision.datasets.MNIST('dataset/', 
-                                          train=False, 
-                                          download=True,
-                                          transform=image_transform)
+test_dataset = torchvision.datasets.CIFAR10('cifar10/', 
+                                           train=False, 
+                                           download=True,
+                                           transform=image_transform)
 #data loaders
 train_loader = torch.utils.data.DataLoader(train_dataset,
                                            batch_size=batch_size_train, 
@@ -86,16 +85,15 @@ print("Label: "+ str(labels[0]))
 
 ## Then define the model class
 class AutoEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, input_chans=3):
         super(AutoEncoder, self).__init__()
-        #input channel 1, output channel 10
-        self.conv1 = nn.Conv2d( 1, 10, kernel_size=5, stride=1, padding='same')
-        #input channel 10, output channel 20
+        ic = input_chans
+        oc = input_chans
+        self.conv1 = nn.Conv2d(ic, 10, kernel_size=5, stride=1, padding='same')
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5, stride=1, padding='same')
-        #input channel 20, output channel 10
         self.conv3 = nn.Conv2d(20, 10, kernel_size=5, stride=1, padding='same')
-        #input channel 10, output channel 3
-        self.conv4 = nn.Conv2d(10,  1, kernel_size=5, stride=1, padding='same')
+        self.conv4 = nn.Conv2d(10, oc, kernel_size=5, stride=1, padding='same')
+
     def forward(self, x):
         x = self.conv1(x)
         x = torch.relu(x)
