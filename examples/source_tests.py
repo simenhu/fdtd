@@ -60,10 +60,10 @@ grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 #     period=WAVELENGTH / SPEED_LIGHT, name="linesource2",
 # )
 
-grid[20, -20, 0] = fdtd.PointSource(
+grid[20, -20, 0] = fdtd.CorticalColumnPointSource(dir_vec=(0,1,0),
     period=WAVELENGTH / SPEED_LIGHT, name="linesource0"
 )
-grid[-20, 20, 0] = fdtd.PointSource(
+grid[-20, 20, 0] = fdtd.CorticalColumnPointSource(dir_vec=(1,0,0),
     period=WAVELENGTH / SPEED_LIGHT, name="linesource3",
 )
 
@@ -86,10 +86,11 @@ grid[midpoint_y-10:midpoint_y+10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.Aniso
 
 
 grid.visualize(z=0, animate=True)
-for i in range(1000):
-    grid.run(1, progress_bar=False)
-    grid.visualize(z=0, norm='log', animate=True)
-    plt.show()
+#for i in range(1000):
+#    grid.run(1, progress_bar=False)
+grid.run(100, progress_bar=False)
+grid.visualize(z=0, norm='log', animate=True)
+plt.show()
 x = input('type input to end: ')
 
 
