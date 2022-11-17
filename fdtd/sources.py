@@ -125,6 +125,41 @@ class PointSource:
         s += f"        @ x={x}, y={y}, z={z}\n"
         return s
 
+class CorticalColumnPointSource(PointSource):
+    """
+    A source placed at a single point (grid cell) in the grid
+    which perturbs the electric field in a learnable way.
+    """
+
+    def __init__(
+        self,
+        period: Number = 15,
+        amplitude: float = 1.0,
+        phase_shift: float = 0.0,
+        name: str = None,
+        pulse: bool = False,
+        cycle: int = 5,
+        hanning_dt: float = 10.0,
+        dir_vec = (1,1,1)
+    ):
+        super().__init__()
+
+        # Direction of the wave
+        self.dir_vec = bd.array(dir_vec)
+
+    def update_E(self):
+        """Add the source to the electric field"""
+        q = self.grid.time_steps_passed
+        src = self.amplitude * sin(2 * pi * q / self.period + self.phase_shift)
+        # X dir_vec
+        self.grid.E[self.x-1, self.y-0, self.z-0, 2] -= src*self.dir_vec[0] 
+        self.grid.E[self.x-0, self.y-0, self.z-0, 2] += src*self.dir_vec[0]
+        # Y dir_vec
+        self.grid.E[self.x-0, self.y-1, self.z-0, 2] -= src*self.dir_vec[1] 
+        self.grid.E[self.x-0, self.y-0, self.z-0, 2] += src*self.dir_vec[1]
+        # Z dir_vec
+        self.grid.E[self.x-0, self.y-0, self.z-1, 2] -= src*self.dir_vec[2] 
+        self.grid.E[self.x-0, self.y-0, self.z-0, 2] += src*self.dir_vec[2]
 
 ## LineSource class
 class LineSource:
