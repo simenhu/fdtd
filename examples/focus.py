@@ -5,7 +5,6 @@ sys.path.append('/home/bij/PersonalProjects/fdtd/')
 import fdtd
 import fdtd.backend as bd
 import matplotlib.pyplot as plt
-import cv2
 import numpy as np
 
 
