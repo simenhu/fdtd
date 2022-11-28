@@ -8,6 +8,7 @@ import torchvision.transforms.functional as F
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm_notebook as tqdm
+from EMSim import EMSimulator
 
 
 plt.rcParams["savefig.bbox"] = 'tight'
@@ -72,80 +73,6 @@ sample = example_datas[0][0]
 # show the data
 plt.imshow(sample, cmap='gray', interpolation='none')
 print("Label: "+ str(labels[0]))
-
-
-## Then define the model class
-class WaveAutoEncoder(nn.Module):
-    def __init__(self, input_chans=3, em_chans=3, load_weights=False):
-        super(AutoEncoder, self).__init__()
-
-        if(load_weights):
-            #TODO - implement loading from pre-trained weights
-        ic = input_chans
-        em = em_chans
-
-        # Activation functions
-        self.fex_act = torch.relu
-        self.dec_act = torch.relu
-
-        # Feature extraction layers.
-        self.fex_conv1 = nn.Conv2d(ic, 16, kernel_size=5, stride=1, padding='same')
-        self.fex_conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=1, padding='same')
-        self.fex_conv3 = nn.Conv2d(32, 16, kernel_size=5, stride=1, padding='same')
-        self.fex_conv4 = nn.Conv2d(16, em, kernel_size=5, stride=1, padding='same')
-
-        # EM Decoder layers.
-        #TODO - find out how many layers the EM field makes up and replace it below.
-        self.dec_conv1 = nn.Conv2d(emnumlayers, 16, kernel_size=5, stride=1, padding='same')
-        self.dec_conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=1, padding='same')
-        self.dec_conv3 = nn.Conv2d(32, 16, kernel_size=5, stride=1, padding='same')
-        self.dec_conv4 = nn.Conv2d(16, ic, kernel_size=5, stride=1, padding='same')
-
-        # The rise intensity of the signal (how fast it fires).
-        self.frequencies = (oc)
-        # The magnitude of the charge that is moved (how much charge to move between cells).
-        self.magnitudes = (oc)
-        # The direction of the charge when fired (vector in 3D).
-        self.direction = (oc, 3)
-
-        #TODO - decide what this looks like.
-        # Malleability (how much the surrounding fields affect this neuron):
-        # We have to find a relationship b/t firing strength and E-field source behavior.
-
-        # A source should shake a charge back and forth in the direction of self.direction
-        # and the magnitude decides how much of a charge to shake.
-
-        
-    def forward(self, x):
-        x = self.fex_conv1(x)
-        x = torch.relu(x)
-        x = self.fex_conv2(x)
-        x = torch.relu(x)
-        x = self.fex_conv3(x)
-        x = torch.relu(x)
-        x = self.fex_conv4(x)
-        # Correct activation function?
-        x = torch.sigmoid(x)
-
-        # Convert activations to EM perturbation magnitudes with current E or H fields as inputs.
-        mags = f(E_field, x)
-
-        # Setup the simulation w/ the source mags
-
-        # Run the EM simulation for N steps and get the resulting E and H fields
-        E, H = sim.run(self.num_EM_steps)
-
-        # Feed E and H to decoder
-        x = self.dec_conv1(x)
-        x = torch.relu(x)
-        x = self.dec_conv2(x)
-        x = torch.relu(x)
-        x = self.dec_conv3(x)
-        x = torch.relu(x)
-        x = self.dec_conv4(x)
-        # Correct activation function?
-        x = torch.sigmoid(x)
-        return x
 
 ## create model and optimizer
 learning_rate = 0.00001
