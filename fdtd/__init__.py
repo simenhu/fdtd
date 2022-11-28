@@ -4,7 +4,7 @@ __author__ = "Floris laporte"
 __version__ = "0.2.5"
 
 from .grid import Grid
-from .sources import PointSource, LineSource, PlaneSource
+from .sources import PointSource, CorticalColumnPointSource, LineSource, PlaneSource
 from .detectors import LineDetector, BlockDetector, CurrentDetector
 from .objects import Object, AbsorbingObject, AnisotropicObject, NonLinearObject
 from .boundaries import PeriodicBoundary, PML

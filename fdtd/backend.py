@@ -29,6 +29,7 @@ The ``cuda`` backends are only available for computers with a GPU.
 # Numpy Backend
 import numpy  # numpy has to be present
 from functools import wraps
+import sys
 
 # used only by test runner.
 # default must be idx 0.
@@ -55,9 +56,10 @@ try:
 
     torch.set_default_dtype(torch.float64)  # we need more precision for FDTD
     try:  # we don't need gradients (for now)
-        torch._C.set_grad_enabled(False)  # type: ignore
+        torch.set_grad_enabled(True)
     except AttributeError:
-        torch._C._set_grad_enabled(False)
+        print('ERROR: GRAD COULD NOT BE SET TO TRUE')
+        sys.exit()
     TORCH_AVAILABLE = True
     TORCH_CUDA_AVAILABLE = torch.cuda.is_available()
 except ImportError:
