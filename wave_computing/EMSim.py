@@ -24,7 +24,7 @@ class EMSimulator():
         #TODO - make the permittivity and permeability learnable.
         self.grid = fdtd.Grid(
             (1.5e-5, 1.5e-5, 1),
-            self.grid_spacing=0.1 * WAVELENGTH,
+            grid_spacing=0.1 * WAVELENGTH,
             permittivity=1.0,
             permeability=1.0,
         )
@@ -34,10 +34,10 @@ class EMSimulator():
 
         # boundaries
 
-        self.grid[0:10, :, :] = fdtd.PML(name="pml_xlow")
-        self.grid[-10:, :, :] = fdtd.PML(name="pml_xhigh")
-        self.grid[:, 0:10, :] = fdtd.PML(name="pml_ylow")
-        self.grid[:, -10:, :] = fdtd.PML(name="pml_yhigh")
+        self.grid[ 0:10,    :,   :] = fdtd.PML(name="pml_xlow")
+        self.grid[ -10:,    :,   :] = fdtd.PML(name="pml_xhigh")
+        self.grid[    :, 0:10,   :] = fdtd.PML(name="pml_ylow")
+        self.grid[    :, -10:,   :] = fdtd.PML(name="pml_yhigh")
 
         self.grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
@@ -69,7 +69,4 @@ class EMSimulator():
             plt.show()
 
         return self.grid.E, self.grid.H
-
-
-
 

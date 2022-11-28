@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm_notebook as tqdm
 from EMSim import EMSimulator
+from cortical_autoencoder import WaveAutoEncoder
 
 
 plt.rcParams["savefig.bbox"] = 'tight'
@@ -78,7 +79,7 @@ print("Label: "+ str(labels[0]))
 learning_rate = 0.00001
 momentum = 0.5
 device = "cuda"
-model = AutoEncoder().to(device) #using cpu here
+model = WaveAutoEncoder().to(device) #using cpu here
 optimizer = optim.SGD(model.parameters(), lr=learning_rate,
                       momentum=momentum)
 mse = torch.nn.MSELoss(reduce=False)

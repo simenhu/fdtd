@@ -1,10 +1,8 @@
-
 import numpy as np
 import torch
 import torchvision
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
-#import cv2
 import torchvision.transforms.functional as F
 import torch.nn as nn
 import torch.optim as optim
@@ -12,7 +10,7 @@ from tqdm import tqdm_notebook as tqdm
 from EMSim import EMSimulator
 from torch.autograd import Variable
 
-class maxwell_layer:
+class MaxwellLayer:
     def __init__(self, num_filters, h, w):
         # Generate weights that add up to 1.
         self.weights = Variable(torch.randn(1, num_filters, h, w))
@@ -40,7 +38,7 @@ class maxwell_layer:
 ## Then define the model class
 class WaveAutoEncoder(nn.Module):
     def __init__(self, input_chans=3, em_chans=3, load_weights=False):
-        super(AutoEncoder, self).__init__()
+        super(WaveAutoEncoder, self).__init__()
 
         # The EM simulator 
         self.emsim = EMSimulator()
@@ -58,9 +56,12 @@ class WaveAutoEncoder(nn.Module):
         self.fex_conv3 = nn.Conv2d(32, 16, kernel_size=5, stride=1, padding='same')
         self.fex_conv4 = nn.Conv2d(16, em, kernel_size=5, stride=1, padding='same')
 
+        # Maxwell layer.
+        self.mw = MaxwellLayer()
+
         # EM Decoder layers.
         #TODO - find out how many layers the EM field makes up and replace it below.
-        self.dec_conv1 = nn.Conv2d(emnumlayers, 16, kernel_size=5, stride=1, padding='same')
+        self.dec_conv1 = nn.Conv2d(em, 16, kernel_size=5, stride=1, padding='same')
         self.dec_conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=1, padding='same')
         self.dec_conv3 = nn.Conv2d(32, 16, kernel_size=5, stride=1, padding='same')
         self.dec_conv4 = nn.Conv2d(16, ic, kernel_size=5, stride=1, padding='same')
@@ -112,3 +113,7 @@ class WaveAutoEncoder(nn.Module):
         # Correct activation function?
         x = torch.sigmoid(x)
         return x
+
+wae = WaveAutoEncoder()
+img = torch.zeros(1,3,200,200)
+img_hat = wae(img)
