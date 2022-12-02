@@ -93,7 +93,7 @@ optimizer = optim.SGD([grid.objects[0].inverse_permittivity], lr=learning_rate,
                       momentum=momentum)
 mse = torch.nn.MSELoss(reduce=False)
 
-max_train_steps = 10000
+max_train_steps = 100000
 em_steps = 200 
 #grid.visualize(z=0, animate=True)
 #torch.autograd.set_detect_anomaly(True)
