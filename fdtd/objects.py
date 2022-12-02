@@ -317,3 +317,76 @@ class NonLinearObject(Object):
             curl_E: the curl of electric field in the grid.
 
         """
+
+class LearnableAnisotropicObject(Object):
+    """ An object with anisotropic permittivity tensor """
+
+    def __init__(
+        self, permittivity: Tensorlike, name: str = None
+    ):
+        """
+        Args:
+            permittivity: permittivity tensor
+            conductivity: conductivity tensor (will introduce the loss)
+            name: name of the object (will become available as attribute to the grid)
+        """
+        super().__init__(permittivity, name)
+
+    def _register_grid(
+        self, grid: Grid, x: slice = None, y: slice = None, z: slice = None
+    ):
+        """Register a grid to the object
+
+        Args:
+            grid: the grid to register the object into
+            x: the x-location of the object in the grid
+            y: the y-location of the object in the grid
+            z: the z-location of the object in the grid
+        """
+        super()._register_grid(grid=grid, x=x, y=y, z=z)
+        eye = bd.zeros((self.Nx * self.Ny * self.Nz, 3, 3))
+        eye[:, range(3), range(3)] = 1.0
+        self.inverse_permittivity = bd.reshape(
+            bd.reshape(self.inverse_permittivity, (-1, 1, 3)) * eye,
+            (self.Nx, self.Ny, self.Nz, 3, 3),
+        )
+        self.inverse_permittivity.requires_grad = True
+        self.inverse_permittivity.retain_grad()
+
+    def update_E(self, curl_H):
+        """custom update equations for inside the anisotropic object
+
+        Args:
+            curl_H: the curl of magnetic field in the grid.
+
+        """
+        loc = (self.x, self.y, self.z)
+        # z = bd.zeros(self.grid.shape + (3,))
+        # z[loc] = 1.0
+
+        # temp = bd.reshape(
+        #     self.grid.courant_number
+        #     * bd.bmm(
+        #         bd.reshape(self.inverse_permittivity, (-1, 3, 3)),
+        #         bd.reshape(curl_H[loc], (-1, 3, 1)),
+        #     ),
+        #     (self.Nx, self.Ny, self.Nz, 3),
+        # )
+        # z[loc] = temp
+        # self.grid.E = self.grid.E + z
+        self.grid.E[loc] += bd.reshape(
+            self.grid.courant_number
+            * bd.bmm(
+                bd.reshape(self.inverse_permittivity, (-1, 3, 3)),
+                bd.reshape(curl_H[loc], (-1, 3, 1)),
+            ),
+            (self.Nx, self.Ny, self.Nz, 3),
+        )
+
+    def update_H(self, curl_E):
+        """custom update equations for inside the anisotropic object
+
+        Args:
+            curl_E: the curl of electric field in the grid.
+
+        """

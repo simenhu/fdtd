@@ -294,7 +294,10 @@ if TORCH_AVAILABLE:
         def numpy(self, arr):
             """convert the array to numpy array"""
             if torch.is_tensor(arr):
-                return arr.numpy()
+                if(arr.requires_grad):
+                    return arr.detach().numpy()
+                else:
+                    return arr.numpy()
             else:
                 return numpy.asarray(arr)
 

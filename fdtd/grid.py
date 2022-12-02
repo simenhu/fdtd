@@ -326,8 +326,10 @@ class Grid:
 
     def reset(self):
         """ reset the grid by setting all fields to zero """
-        self.H *= 0.0
-        self.E *= 0.0
+        self.H = self.H.detach()
+        self.E = self.E.detach()
+        self.H = self.H*0.0
+        self.E = self.E*0.0
         self.time_steps_passed *= 0
 
     def add_source(self, name, source):
