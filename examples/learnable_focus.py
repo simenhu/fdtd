@@ -77,13 +77,15 @@ midpoint_y = grid.shape[0]//2
 midpoint_x = grid.shape[1]//2
 grid[10:gl-10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
 
+
 # Add a detector
-my_detector = fdtd.LineDetector(name="detector")
-grid[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] = my_detector
+#my_detector = fdtd.LineDetector(name="detector")
+#grid[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] = my_detector
 
 
 #learning_rate = 0.00001
-learning_rate = 1000
+#learning_rate = 1000
+learning_rate = 0.01
 momentum = 0.5
 device = "cuda"
 print('Get object: ', grid.objects[0].name)
@@ -93,31 +95,42 @@ mse = torch.nn.MSELoss(reduce=False)
 
 max_train_steps = 10000
 em_steps = 200 
-grid.visualize(z=0, animate=True)
+#grid.visualize(z=0, animate=True)
+#torch.autograd.set_detect_anomaly(True)
+
+grid.H.requires_grad = True
+grid.H.retain_grad()
+grid.E.requires_grad = True
+grid.E.retain_grad()
 
 # Train the weights
 counter = 0
 print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
 for train_step in range(max_train_steps):
     grid.reset()
+    grid.objects[0].inverse_permittivity.detach()
     optimizer.zero_grad()
+    grid.E.detach()
+    grid.H.detach()
     # Reset the grid
     #print('Sum of E before: ', bd.sum(grid.E))
     grid.run(em_steps , progress_bar=False)
     print('Time: ', grid.time_steps_passed)
     #loss = torch.sum(mse(output, data))
-    print(my_detector.detector_values()['E'][-1].shape)
-    detector_energy = bd.sum(bd.sum(my_detector.detector_values()['E'][-1] ** 2 
-                            + my_detector.detector_values()['H'][-1] ** 2, -1))
+    #print(my_detector.detector_values()['E'][-1].shape)
+    # detector_energy = bd.sum(bd.sum(my_detector.detector_values()['E'][-1] ** 2 
+    #                         + my_detector.detector_values()['H'][-1] ** 2, -1))
+    detector_energy = bd.sum(bd.sum(grid.E[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2 
+                            + grid.H[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2, -1))
     loss = -1.0*detector_energy
     #loss.requires_grad = True
-    print('loss retain grad? ', loss.requires_grad)
+    #print('loss retain grad? ', loss.requires_grad)
     #loss.retain_grad()
     print('Loss: ', loss)
-    loss.backward()
-    #loss.backward(retain_graph=True)
+    #loss.backward()
+    optimizer.zero_grad()
+    loss.backward(retain_graph=True)
     optimizer.step()
-    print('dududud')
     counter += 1
     grid.visualize(z=0, norm='log', animate=True)
     plt.show()
