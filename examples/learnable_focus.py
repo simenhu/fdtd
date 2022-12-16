@@ -3,7 +3,7 @@
 # Here we demonstrate learning parameters.
 
 import sys
-sys.path.append('/home/bij/PersonalProjects/fdtd/')
+sys.path.append('/home/bij/Projects/fdtd/')
 import fdtd
 import fdtd.backend as bd
 import matplotlib.pyplot as plt
