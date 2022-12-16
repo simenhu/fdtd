@@ -113,39 +113,18 @@ for train_step in range(max_train_steps):
     grid.E.detach()
     grid.H.detach()
     # Reset the grid
-    #print('Sum of E before: ', bd.sum(grid.E))
     grid.run(em_steps , progress_bar=False)
-    print('Time: ', grid.time_steps_passed)
-    #loss = torch.sum(mse(output, data))
-    #print(my_detector.detector_values()['E'][-1].shape)
-    # detector_energy = bd.sum(bd.sum(my_detector.detector_values()['E'][-1] ** 2 
-    #                         + my_detector.detector_values()['H'][-1] ** 2, -1))
+    print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed)
     detector_energy = bd.sum(bd.sum(grid.E[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2 
                             + grid.H[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2, -1))
     loss = -1.0*detector_energy
-    #loss.requires_grad = True
-    #print('loss retain grad? ', loss.requires_grad)
-    #loss.retain_grad()
-    print('Loss: ', loss)
-    #loss.backward()
+    print('Loss: ', loss, '\tDetector energy: ', detector_energy)
     optimizer.zero_grad()
     loss.backward(retain_graph=True)
     optimizer.step()
     counter += 1
     grid.visualize(z=0, norm='log', animate=True)
     plt.show()
-    print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
-    print('Sum of E after: ', bd.sum(grid.E))
-
-
-# grid.visualize(z=0, animate=True)
-# for i in range(100000):
-#     grid.run(1, progress_bar=False)
-#     if(i % 10 == 0):
-#         grid.visualize(z=0, norm='log', animate=True)
-#         plt.show()
-# x = input('type input to end: ')
-
-
-
+    #print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
+    #print('Sum of E after: ', bd.sum(grid.E))
 
