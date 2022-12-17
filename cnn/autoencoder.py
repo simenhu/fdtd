@@ -105,7 +105,7 @@ class AutoEncoder(nn.Module):
         return torch.sigmoid(x)
 
 ## create model and optimizer
-learning_rate = 0.00001
+learning_rate = 0.000001
 momentum = 0.5
 device = "cuda"
 model = AutoEncoder().to(device) #using cpu here
@@ -113,6 +113,8 @@ optimizer = optim.SGD(model.parameters(), lr=learning_rate,
                       momentum=momentum)
 mse = torch.nn.MSELoss(reduce=False)
 
+
+plt.ion()
 
 def train(model, device, train_loader, optimizer, epoch, log_interval=10000):
     model.train()
@@ -141,7 +143,8 @@ def test(model, device, test_loader):
             img = format_imgs(data, output)
             if(idx == 0):
                 plt.imshow(img)
-                plt.show()
+                plt.draw()
+                plt.pause(0.0001)
 
     test_loss /= len(test_loader.dataset)
 
@@ -152,6 +155,6 @@ def test(model, device, test_loader):
 
 num_epoch = 10
 for epoch in range(1, num_epoch + 1):
-        test(model, device, test_loader)
-        train(model, device, train_loader, optimizer, epoch)
+    test(model, device, test_loader)
+    train(model, device, train_loader, optimizer, epoch)
 
