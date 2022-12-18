@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 
 import sys
-sys.path.append('/home/bij/PersonalProjects/fdtd/')
+sys.path.append('/home/bij/Projects/fdtd/')
 import fdtd
 import fdtd.backend as bd
 import matplotlib.pyplot as plt
+import time
 
 
 # ## Set Backend
-fdtd.set_backend("numpy")
+#fdtd.set_backend("numpy")
+fdtd.set_backend("torch")
 
 
 # ## Constants
@@ -25,7 +27,7 @@ SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 
 
 grid = fdtd.Grid(
-    (1.5e-5, 1.5e-5, 1),
+    (100.5e-5, 100.5e-5, 1),
     grid_spacing=0.1 * WAVELENGTH,
     permittivity=1.0,
     permeability=1.0,
@@ -52,21 +54,30 @@ grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
 # sources
 
-grid[20, -20:-25, 0] = fdtd.LineSource(
-    period=WAVELENGTH / SPEED_LIGHT,
-    pulse = True,
-    cycle = 100000000000000000,
-    name="linesource0"
-)
-# grid[-20, -20:-25, 0] = fdtd.LineSource(
-#     period=WAVELENGTH / SPEED_LIGHT, name="linesource1"
+# grid[50, 70:75, 0] = fdtd.LineSource(
+#     period=WAVELENGTH / SPEED_LIGHT, name="linesource"
 # )
-# grid[20, 20:25, 0] = fdtd.LineSource(
+# grid[70, 70:75, 0] = fdtd.LineSource(
 #     period=WAVELENGTH / SPEED_LIGHT, name="linesource2",
 # )
-# grid[-20, 20:25, 0] = fdtd.LineSource(
-#     period=WAVELENGTH / SPEED_LIGHT, name="linesource3",
-# )
+
+grid[20, -20:-25, 0] = fdtd.LineSource(
+    period=WAVELENGTH / SPEED_LIGHT, name="linesource0"
+)
+grid[-20, -20:-25, 0] = fdtd.LineSource(
+    period=WAVELENGTH / SPEED_LIGHT, name="linesource1"
+)
+grid[20, 20:25, 0] = fdtd.LineSource(
+    period=WAVELENGTH / SPEED_LIGHT, name="linesource2",
+)
+grid[-20, 20:25, 0] = fdtd.LineSource(
+    period=WAVELENGTH / SPEED_LIGHT, name="linesource3",
+)
+
+
+# detectors
+
+# grid[12e-6, :, 0] = fdtd.LineDetector(name="detector")
 
 
 # objects
@@ -81,13 +92,19 @@ grid[midpoint_y-10:midpoint_y+10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.Aniso
 # ## Visualization
 
 
+print('Done initializing everything, starting sim....')
+time_beg = time.perf_counter()
+
 grid.visualize(z=0, animate=True)
 for i in range(1000):
-    grid.run(1, progress_bar=False)
-    grid.visualize(z=0, norm='log', animate=True)
-    plt.show()
-x = input('type input to end: ')
+    grid.run(10, progress_bar=False)
+    #grid.visualize(z=0, norm='log', animate=True)
+    #plt.show()
+    print('Step: ', i)
+time_end = time.perf_counter()
 
+
+print('Simulation ended, it took {0:f}s to end'.format(time_end - time_beg))
 
 
 

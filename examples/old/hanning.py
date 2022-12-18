@@ -5,12 +5,10 @@ sys.path.append('/home/bij/Projects/fdtd/')
 import fdtd
 import fdtd.backend as bd
 import matplotlib.pyplot as plt
-import time
 
 
 # ## Set Backend
-#fdtd.set_backend("numpy")
-fdtd.set_backend("torch")
+fdtd.set_backend("numpy")
 
 
 # ## Constants
@@ -54,30 +52,21 @@ grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
 # sources
 
-# grid[50, 70:75, 0] = fdtd.LineSource(
-#     period=WAVELENGTH / SPEED_LIGHT, name="linesource"
+grid[20, -20:-25, 0] = fdtd.LineSource(
+    period=WAVELENGTH / SPEED_LIGHT,
+    pulse = True,
+    cycle = 100000000000000000,
+    name="linesource0"
+)
+# grid[-20, -20:-25, 0] = fdtd.LineSource(
+#     period=WAVELENGTH / SPEED_LIGHT, name="linesource1"
 # )
-# grid[70, 70:75, 0] = fdtd.LineSource(
+# grid[20, 20:25, 0] = fdtd.LineSource(
 #     period=WAVELENGTH / SPEED_LIGHT, name="linesource2",
 # )
-
-grid[20, -20:-25, 0] = fdtd.LineSource(
-    period=WAVELENGTH / SPEED_LIGHT, name="linesource0"
-)
-grid[-20, -20:-25, 0] = fdtd.LineSource(
-    period=WAVELENGTH / SPEED_LIGHT, name="linesource1"
-)
-grid[20, 20:25, 0] = fdtd.LineSource(
-    period=WAVELENGTH / SPEED_LIGHT, name="linesource2",
-)
-grid[-20, 20:25, 0] = fdtd.LineSource(
-    period=WAVELENGTH / SPEED_LIGHT, name="linesource3",
-)
-
-
-# detectors
-
-# grid[12e-6, :, 0] = fdtd.LineDetector(name="detector")
+# grid[-20, 20:25, 0] = fdtd.LineSource(
+#     period=WAVELENGTH / SPEED_LIGHT, name="linesource3",
+# )
 
 
 # objects
@@ -92,18 +81,13 @@ grid[midpoint_y-10:midpoint_y+10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.Aniso
 # ## Visualization
 
 
-print('Done initializing everything, starting sim....')
-time_beg = time.perf_counter()
-
 grid.visualize(z=0, animate=True)
-for i in range(100):
-    grid.run(100, progress_bar=False)
+for i in range(1000):
+    grid.run(1, progress_bar=False)
     grid.visualize(z=0, norm='log', animate=True)
     plt.show()
-time_end = time.perf_counter()
+x = input('type input to end: ')
 
-
-print('Simulation ended, it took {0:f}s to end'.format(time_end - time_beg))
 
 
 
