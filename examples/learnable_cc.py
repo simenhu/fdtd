@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
+from autoencoder import AutoEncoder
 
 
 # ## Set Backend
@@ -74,13 +75,20 @@ grid[10:gl-10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.LearnableAnisotropicObje
 #grid[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] = my_detector
 
 
+
+momentum = 0.5
+device = "cuda"
+# Make the model
+model = AutoEncoder().to(device)
+
+print('Get object: ', [obj.name for obj in grid.objects])
+#TODO - Add encoder trainable params to this list
+#TODO - Add cc trainable params to this list
+params_to_learn = [obj.inverse_permittivity for obj in grid.objects]
+params_to_learn += [model.parameters()]
 #learning_rate = 0.00001
 #learning_rate = 1000
 learning_rate = 0.01
-momentum = 0.5
-device = "cuda"
-print('Get object: ', [obj.name for obj in grid.objects])
-params_to_learn = [obj.inverse_permittivity for obj in grid.objects]
 optimizer = optim.SGD(params_to_learn, lr=learning_rate,
                       momentum=momentum)
 mse = torch.nn.MSELoss(reduce=False)
@@ -99,10 +107,13 @@ counter = 0
 print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
 for train_step in range(max_train_steps):
     grid.reset()
-    grid.objects[0].inverse_permittivity.detach()
     optimizer.zero_grad()
-    grid.E.detach()
-    grid.H.detach()
+    ### X ### - Get a sample from training data
+    ### X ### - Push it through Encoder
+    ### X ### - Seed CC with encoded stimulus
+    ### X ### - Seed CC with encoded stimulus
+    ### X ### - Run sim
+
     # Reset the grid
     if(train_step % 10 == 0):
         for i in range(em_steps//visualizer_speed):
@@ -111,18 +122,17 @@ for train_step in range(max_train_steps):
             plt.show()
     else:
         grid.run(em_steps , progress_bar=False)
-    print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed)
+    ### X ### - Generate encoder loss
     detector_energy = bd.sum(bd.sum(grid.E[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2 
                             + grid.H[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2, -1))
     loss = -1.0*detector_energy
-    print('Loss: ', loss, '\tDetector energy: ', detector_energy)
+    print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss, '\tDetector energy: ', detector_energy)
     optimizer.zero_grad()
+    ### X ### - Backprop
     loss.backward(retain_graph=True)
     optimizer.step()
     counter += 1
     grid.visualize(z=0, norm='log', animate=True)
     plt.show()
-    #print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
-    #print('Sum of E after: ', bd.sum(grid.E))
 
 
