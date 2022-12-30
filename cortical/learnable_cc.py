@@ -97,6 +97,28 @@ max_train_steps = 100000
 em_steps = 200 
 visualizer_speed = 5
 
+image_transform = torchvision.transforms.Compose([
+                               torchvision.transforms.ToTensor()])
+train_dataset = torchvision.datasets.CIFAR10('cifar10/', 
+                                           train=True, 
+                                           download=True,
+                                           transform=image_transform)
+#data loaders
+train_loader = torch.utils.data.DataLoader(train_dataset,
+                                           batch_size=batch_size_train, 
+                                           shuffle=True)
+
+
+def get_sample_img(img_loader):
+    _, (example_datas, labels) = next(enumerate(img_loader))
+    sample = example_datas[0][0]
+    return sample.to(device)
+
+sample = get_sample_img(train_loader)
+# show the data
+plt.imshow(sample, cmap='gray', interpolation='none')
+print("Label: "+ str(labels[0]))
+
 grid.H.requires_grad = True
 grid.H.retain_grad()
 grid.E.requires_grad = True
@@ -109,12 +131,13 @@ for train_step in range(max_train_steps):
     grid.reset()
     optimizer.zero_grad()
     ### X ### - Get a sample from training data
+    img = get_sample_img(train_loader)
     ### X ### - Push it through Encoder
-    ### X ### - Seed CC with encoded stimulus
+    Z = model(img)
     ### X ### - Seed CC with encoded stimulus
     ### X ### - Run sim
 
-    # Reset the grid
+    # Run the simulator
     if(train_step % 10 == 0):
         for i in range(em_steps//visualizer_speed):
             grid.run(visualizer_speed, progress_bar=False)
@@ -122,6 +145,8 @@ for train_step in range(max_train_steps):
             plt.show()
     else:
         grid.run(em_steps , progress_bar=False)
+
+    ### X ### - Decode EM field into an image
     ### X ### - Generate encoder loss
     detector_energy = bd.sum(bd.sum(grid.E[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2 
                             + grid.H[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2, -1))

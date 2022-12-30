@@ -11,6 +11,7 @@ import numpy as np
 # ## Set Backend
 fdtd.set_backend("numpy")
 
+
 # ## Constants
 WAVELENGTH = 1550e-9
 WAVELENGTH2 = 1550e-8
