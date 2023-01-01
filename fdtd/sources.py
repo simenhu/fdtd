@@ -583,8 +583,19 @@ class CorticalColumnPlaneSource(PlaneSource):
         #TODO - Check the dims work (check out how they are done above)
         #TODO - should we be setting this or adding it to self.E? 
         print('E shape: ', self.grid.E.shape)
-        self.grid.E = torch.conv_transpose3d(self.grid.E, dirs_zerosum, bias=None)
+        print('strides: ', [self.x, self.y, self.z, self._Epol])
+        print('strides: ', [self.x, self.y, self.z, 2])
+        print('E strided: ', self.grid.E[self.x, self.y].shape)
+        #self.grid.E = torch.conv_transpose3d(self.grid.E, dirs_zerosum, bias=None)
+        #E_tp = torch.permute(self.grid.E[self.x, self.y], (2,3,0,1))[:,0,...]
+        #E_tp = torch.permute(self.grid.E[self.x, self.y], (2,3,0,1))
+        E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
+        print('E_tp shape: ', E_tp.shape)
+        conv_out = torch.conv_transpose2d(torch.ones_like(E_tp), dirs_zerosum, bias=None, stride=1)
+        print('Conv output: ', conv_out.shape)
+        # self.grid.E[self.x, self.y, self.z, self._Epol] = 
         print('E shape: ', self.grid.E.shape)
+        sys.exit()
 
 
 
