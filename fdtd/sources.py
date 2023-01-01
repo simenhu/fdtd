@@ -591,6 +591,7 @@ class CorticalColumnPlaneSource(PlaneSource):
         #E_tp = torch.permute(self.grid.E[self.x, self.y], (2,3,0,1))
         E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
         print('E_tp shape: ', E_tp.shape)
+        # Figure out the logic and replace this with the one in the notebook
         conv_out = torch.conv_transpose2d(torch.ones_like(E_tp), dirs_zerosum, bias=None, stride=1)
         print('Conv output: ', conv_out.shape)
         # self.grid.E[self.x, self.y, self.z, self._Epol] = 
