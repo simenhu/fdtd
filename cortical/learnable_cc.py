@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
+import torchvision
 from autoencoder import AutoEncoder
 
 
@@ -57,8 +58,16 @@ grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
 gl = grid.shape[0]
 
-grid[gl//2,gl//5,0] = fdtd.PointSource(
+# grid[gl//2,gl//5,0] = fdtd.PointSource(
+#     period = WAVELENGTH / SPEED_LIGHT,
+# )
+
+#TODO make sure polarization makes sense
+#TODO make sure this source covers enough of the grid
+grid[20:40,20:40,0] = fdtd.CorticalColumnPlaneSource(
     period = WAVELENGTH / SPEED_LIGHT,
+    polarization = 'x',
+    name='cc'
 )
 
 # detectors
@@ -79,13 +88,13 @@ grid[10:gl-10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.LearnableAnisotropicObje
 momentum = 0.5
 device = "cuda"
 # Make the model
-model = AutoEncoder().to(device)
+model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
 
 print('Get object: ', [obj.name for obj in grid.objects])
 #TODO - Add encoder trainable params to this list
 #TODO - Add cc trainable params to this list
 params_to_learn = [obj.inverse_permittivity for obj in grid.objects]
-params_to_learn += [model.parameters()]
+params_to_learn += [*model.parameters()]
 #learning_rate = 0.00001
 #learning_rate = 1000
 learning_rate = 0.01
@@ -95,7 +104,6 @@ mse = torch.nn.MSELoss(reduce=False)
 
 max_train_steps = 100000
 em_steps = 200 
-visualizer_speed = 5
 
 image_transform = torchvision.transforms.Compose([
                                torchvision.transforms.ToTensor()])
@@ -105,19 +113,21 @@ train_dataset = torchvision.datasets.CIFAR10('cifar10/',
                                            transform=image_transform)
 #data loaders
 train_loader = torch.utils.data.DataLoader(train_dataset,
-                                           batch_size=batch_size_train, 
+                                           batch_size=1, 
                                            shuffle=True)
 
 
 def get_sample_img(img_loader):
     _, (example_datas, labels) = next(enumerate(img_loader))
     sample = example_datas[0][0]
-    return sample.to(device)
+    sample = sample.to(device)[None, None, :]
+    print('Generating sample with shape: ', sample.shape)
+    return sample
 
 sample = get_sample_img(train_loader)
+print('Sample shape: ', sample.shape)
 # show the data
-plt.imshow(sample, cmap='gray', interpolation='none')
-print("Label: "+ str(labels[0]))
+plt.imshow(sample.cpu()[0,0,...], cmap='gray', interpolation='none')
 
 grid.H.requires_grad = True
 grid.H.retain_grad()
@@ -133,24 +143,9 @@ for train_step in range(max_train_steps):
     ### X ### - Get a sample from training data
     img = get_sample_img(train_loader)
     ### X ### - Push it through Encoder
-    Z = model(img)
-    ### X ### - Seed CC with encoded stimulus
-    ### X ### - Run sim
-
-    # Run the simulator
-    if(train_step % 10 == 0):
-        for i in range(em_steps//visualizer_speed):
-            grid.run(visualizer_speed, progress_bar=False)
-            grid.visualize(z=0, norm='log', animate=True)
-            plt.show()
-    else:
-        grid.run(em_steps , progress_bar=False)
-
-    ### X ### - Decode EM field into an image
-    ### X ### - Generate encoder loss
-    detector_energy = bd.sum(bd.sum(grid.E[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2 
-                            + grid.H[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2, -1))
-    loss = -1.0*detector_energy
+    y = model(img, em_steps)
+    ### X ### - Generate loss
+    loss = MSE(img, y)
     print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss, '\tDetector energy: ', detector_energy)
     optimizer.zero_grad()
     ### X ### - Backprop

@@ -40,16 +40,34 @@ def format_imgs(data, output, rows=3):
 
 ## Then define the model class
 class AutoEncoder(nn.Module):
-    def __init__(self, input_chans=3, output_chans=3):
+    def __init__(self, grid, input_chans=3, num_ccs=16, output_chans=3):
         super(AutoEncoder, self).__init__()
+        self.em_grid = grid
         ic = input_chans
+        cc = num_ccs
         oc = output_chans
-        self.conv1 = nn.Conv2d(ic, 10, kernel_size=5, stride=1, padding='same')
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5, stride=1, padding='same')
-        self.conv3 = nn.Conv2d(20, 10, kernel_size=5, stride=1, padding='same')
-        self.conv4 = nn.Conv2d(10, oc, kernel_size=5, stride=1, padding='same')
+        self.conv1 = nn.Conv2d(ic,  8, kernel_size=5, stride=1, padding='same')
+        self.conv2 = nn.Conv2d( 8, 16, kernel_size=5, stride=1, padding='same')
+        self.conv3 = nn.Conv2d(16,  8, kernel_size=5, stride=1, padding='same')
+        self.conv4 = nn.Conv2d( 8, cc, kernel_size=5, stride=1, padding='same')
+        # Converts E and H fields back into an image with a linear transformation
+        self.conv_linear = nn.Conv2d(2, oc, kernel_size=1, stride=1, padding='same')
+        # Direction of E field perturbations
+        # (output (E field), input (E field), kernel_T, kernel_H, kernel_W)
+        # They must sum to zero and we just add them to the E field, no multiplication necessary
+        self.cc_dirs = 2*torch.rand((1, cc, 3, 3, 3)) - 1
+        #TODO - make sure these dir kernels make sense (check the sum)
 
-    def forward(self, x):
+        # img (1, 3, H, W) --> features aka CC activations (1, num_cc, H, W) --> 
+        # freq & phase shift are learned for each CC
+        # EM (
+
+        #TODO - add frequency and phase shift params
+        self.cc_freqs = torch.rand((num_ccs))
+        self.cc_phases = torch.rand((num_ccs))
+
+    def forward(self, x, em_steps, visualize=False, visualizer_speed=5):
+        # Convert image into amplitude, frequency, and phase shift for our CCs.
         x = self.conv1(x)
         x = torch.relu(x)
         x = self.conv2(x)
@@ -57,5 +75,22 @@ class AutoEncoder(nn.Module):
         x = self.conv3(x)
         x = torch.relu(x)
         x = self.conv4(x)
-        return torch.sigmoid(x)
+        cc_activations = x
+
+        # Seed and start sim
+        print('Printing sources: ', self.em_grid.sources)
+        #TODO MAKE SURE THIS IS THE CORRECT SOURCE 
+        self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases)
+        if(not visualize):
+            self.em_grid.run(em_steps , progress_bar=False)
+        else:
+            for i in range(em_steps//visualizer_speed):
+                grid.run(visualizer_speed, progress_bar=False)
+                grid.visualize(z=0, norm='log', animate=True)
+                plt.show()
+        # Generate image from a linear combo of E and H
+        #TODO - make sure this shape is correct
+        em_field = bd.stack([self.em_grid.E, self.em_grid.H], axis=-1)
+        y = torch.sigmoid(self.conv_linear(em_field))
+        return y
 

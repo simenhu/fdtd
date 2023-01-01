@@ -10,6 +10,7 @@ Available sources:
 
 # other
 from math import pi, sin
+import torch
 
 # typing
 from .typing_ import Tuple, Number, ListOrSlice, List
@@ -533,6 +534,60 @@ class PlaneSource:
         z = f"[{self.z.start}, ... , {self.z.stop}]"
         s += f"        @ x={x}, y={y}, z={z}\n"
         return s
+
+class CorticalColumnPlaneSource(PlaneSource):
+    def __init__(
+        self,
+        period: Number = 15,
+        amplitude: float = 1.0,
+        phase_shift: float = 0.0,
+        name: str = None,
+        polarization: str = 'z',
+        num_cortical_columns = 16,
+    ):
+        super().__init__(period, amplitude, phase_shift, name, polarization)
+        #TODO - figure out if we really do need a plane source.
+        #TODO - add learnable "direction" kernel
+
+        # Number of cortical columns to use
+        self.num_ccs = num_cortical_columns
+        self.cc_dirs = None
+
+    def seed(self, cc_activations, cc_dirs, cc_freqs, cc_phases):
+        '''
+        cc_activations: (num_ccs, H, W)
+        cc_seeds should be of the form: (num_ccs, 2) where 3 is:
+            - Freq of the CC.
+            - Phase of the CC.
+        cc_dirs should be of shape: (out_chans, num_ccs, T, H, W)
+        '''
+        self.cc_activations = cc_activations
+        self.cc_dirs = cc_dirs
+        self.cc_freqs  = cc_freqs
+        self.cc_phases = cc_phases
+
+    def update_E(self):
+        """Add the source to the electric field"""
+        if(self.cc_dirs is None):
+            print('Error: Cortical Column source must be seeded')
+            return -1
+
+        q = self.grid.time_steps_passed
+        osc = torch.sin(2 * pi * q * self.cc_freqs + self.cc_phases)
+        print('osc shape: ', osc.shape)
+        #TODO - make sure this is the right shape (1, H, W)
+        # Implement this with a conv operation: 
+        dirs_zerosum = self.cc_dirs/(torch.sum(self.cc_dirs, axis=1)[:,None,...])
+        print('dirs zerosum shape: ', dirs_zerosum.shape)
+        #out = self.cc_activations * osc * torch.conv3d(bd.ones_like(self.grid.E), dirs_zerosum, bias=None, padding='same')
+        #TODO - Check the dims work (check out how they are done above)
+        #TODO - should we be setting this or adding it to self.E? 
+        print('E shape: ', self.grid.E.shape)
+        self.grid.E = torch.conv_transpose3d(self.grid.E, dirs_zerosum, bias=None)
+        print('E shape: ', self.grid.E.shape)
+
+
+
 
 
 class SoftArbitraryPointSource:
