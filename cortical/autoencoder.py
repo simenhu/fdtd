@@ -56,7 +56,8 @@ class AutoEncoder(nn.Module):
         # (output (E field), input (E field), kernel_T, kernel_H, kernel_W)
         # They must sum to zero and we just add them to the E field, no multiplication necessary
         #self.cc_dirs = 2*torch.rand((1, cc, 3, 3, 3)) - 1
-        self.cc_dirs = 2*torch.rand((3, cc, 3, 3)) - 1
+        #self.cc_dirs = 2*torch.rand((3, cc, 3, 3)) - 1
+        self.cc_dirs = 2*torch.rand((1, cc, 3, 3, 3)) - 1
         #TODO - make sure these dir kernels make sense (check the sum)
 
         # img (1, 3, H, W) --> features aka CC activations (1, num_cc, H, W) --> 

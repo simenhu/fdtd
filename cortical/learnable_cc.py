@@ -64,7 +64,7 @@ gl = grid.shape[0]
 
 #TODO make sure polarization makes sense
 #TODO make sure this source covers enough of the grid
-grid[20:40,20:40,0] = fdtd.CorticalColumnPlaneSource(
+grid[20:52,20:52,0] = fdtd.CorticalColumnPlaneSource(
     period = WAVELENGTH / SPEED_LIGHT,
     polarization = 'x',
     name='cc'
