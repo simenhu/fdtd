@@ -134,6 +134,8 @@ grid.H.retain_grad()
 grid.E.requires_grad = True
 grid.E.retain_grad()
 
+loss_fn = torch.nn.MSELoss()
+
 # Train the weights
 counter = 0
 print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
@@ -145,8 +147,8 @@ for train_step in range(max_train_steps):
     ### X ### - Push it through Encoder
     y = model(img, em_steps)
     ### X ### - Generate loss
-    loss = MSE(img, y)
-    print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss, '\tDetector energy: ', detector_energy)
+    loss = loss_fn(y, img)
+    print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
     optimizer.zero_grad()
     ### X ### - Backprop
     loss.backward(retain_graph=True)

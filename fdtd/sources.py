@@ -577,7 +577,8 @@ class CorticalColumnPlaneSource(PlaneSource):
         print('osc shape: ', osc.shape)
         #TODO - make sure this is the right shape (1, H, W)
         # Implement this with a conv operation: 
-        dirs_zerosum = self.cc_dirs/torch.sum(torch.reshape(self.cc_dirs, (1, self.cc_dirs.shape[1], -1)), axis=-1)[:,:,None,None,None]
+        #dirs_zerosum = self.cc_dirs/torch.sum(torch.reshape(self.cc_dirs, (1, self.cc_dirs.shape[1], -1)), axis=-1)[:,:,None,None,None]
+        dirs_zerosum = self.cc_dirs/torch.sum(torch.reshape(self.cc_dirs, (1, self.cc_dirs.shape[1], -1)), axis=-1)[:,:,None,None]
         print('dirs zerosum shape: ', dirs_zerosum.shape)
         print('activations shape: ', self.cc_activations.shape)
         #dirs_activated = dirs_zerosum*self.cc_activations
@@ -591,22 +592,28 @@ class CorticalColumnPlaneSource(PlaneSource):
         #self.grid.E = torch.conv_transpose3d(self.grid.E, dirs_zerosum, bias=None)
         #E_tp = torch.permute(self.grid.E[self.x, self.y], (2,3,0,1))[:,0,...]
         #E_tp = torch.permute(self.grid.E[self.x, self.y], (2,3,0,1))
+        #E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
         E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
         print('E_tp shape: ', E_tp.shape)
         # Figure out the logic and replace this with the one in the notebook
         #conv_out = torch.conv_transpose2d(torch.ones_like(E_tp), dirs_zerosum, bias=None, stride=1)
-        img_shape_tp = np.array(list(E_tp.shape)) - np.array((0, 0, 2, 2))
+        img_shape_tp = np.array(list(E_tp[:,0,...].shape)) - np.array((0, 2, 2))
         print('img shape tp: ', img_shape_tp)
-        conv_out = torch.conv_transpose3d(torch.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
+        #conv_out = torch.conv_transpose3d(torch.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
+        conv_out = torch.conv_transpose2d(torch.ones(tuple(img_shape_tp)).cuda(), dirs_zerosum, bias=None, stride=1)
         print('dirs zerosum shape: ', dirs_zerosum.shape)
         print('Conv output: ', conv_out.shape)
+        print('Conv output: ', conv_out.device)
         conv_out_scaled = conv_out*self.cc_activations
+        # Sum over the CC dimension
+        conv_out_scaled = torch.sum(conv_out_scaled, axis=1).cpu()
         # self.grid.E[self.x, self.y, self.z, self._Epol] = 
         print('E shape: ', self.grid.E.shape)
-        sys.exit()
-
-
-
+        print('conv out scaled', conv_out_scaled.shape)
+        # Add perturbation to grid on the Z axis.
+        print('E dev: ', self.grid.E.device)
+        print('conv_out_scaled dev: ', conv_out_scaled.device)
+        self.grid.E[self.x, self.y, :, -1] += torch.permute(conv_out_scaled, (1,2,0))
 
 
 class SoftArbitraryPointSource:

@@ -51,13 +51,15 @@ class AutoEncoder(nn.Module):
         self.conv3 = nn.Conv2d(16,  8, kernel_size=5, stride=1, padding='same')
         self.conv4 = nn.Conv2d( 8, cc, kernel_size=5, stride=1, padding='same')
         # Converts E and H fields back into an image with a linear transformation
-        self.conv_linear = nn.Conv2d(2, oc, kernel_size=1, stride=1, padding='same')
+        self.conv_linear = nn.Conv2d(6, oc, kernel_size=1, stride=1, padding='same')
         # Direction of E field perturbations
         # (output (E field), input (E field), kernel_T, kernel_H, kernel_W)
         # They must sum to zero and we just add them to the E field, no multiplication necessary
         #self.cc_dirs = 2*torch.rand((1, cc, 3, 3, 3)) - 1
         #self.cc_dirs = 2*torch.rand((3, cc, 3, 3)) - 1
-        self.cc_dirs = 2*torch.rand((1, cc, 3, 3, 3)) - 1
+        #self.cc_dirs = 2*torch.rand((1, cc, 3, 3, 3)) - 1
+        self.cc_dirs = 2*torch.rand((1, cc, 3, 3)) - 1
+        self.cc_dirs = self.cc_dirs.cuda()
         #TODO - make sure these dir kernels make sense (check the sum)
 
         # img (1, 3, H, W) --> features aka CC activations (1, num_cc, H, W) --> 
@@ -92,7 +94,10 @@ class AutoEncoder(nn.Module):
                 plt.show()
         # Generate image from a linear combo of E and H
         #TODO - make sure this shape is correct
-        em_field = bd.stack([self.em_grid.E, self.em_grid.H], axis=-1)
-        y = torch.sigmoid(self.conv_linear(em_field))
+        em_field = torch.cat([self.em_grid.E, self.em_grid.H], axis=-1)
+        em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
+        em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
+        print('em_field.shape: ', em_field.shape)
+        y = torch.sigmoid(self.conv_linear(em_field.cuda()))
         return y
 
