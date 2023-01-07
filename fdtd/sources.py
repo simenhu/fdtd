@@ -571,31 +571,18 @@ class CorticalColumnPlaneSource(PlaneSource):
         if(self.cc_dirs is None):
             print('Error: Cortical Column source must be seeded')
             return -1
-
+        # Calculate the oscillation.
         q = self.grid.time_steps_passed
         osc = torch.sin(2 * pi * q * self.cc_freqs + self.cc_phases)
-        #TODO - make sure this is the right shape (1, H, W)
-        # Implement this with a conv operation: 
-        #dirs_zerosum = self.cc_dirs/torch.sum(torch.reshape(self.cc_dirs, (1, self.cc_dirs.shape[1], -1)), axis=-1)[:,:,None,None,None]
+        # Normalize the kernel so it an only "move" E value, not add/remove any.
         dirs_zerosum = self.cc_dirs/torch.sum(torch.reshape(self.cc_dirs, (1, self.cc_dirs.shape[1], -1)), axis=-1)[:,:,None,None]
-        #dirs_activated = dirs_zerosum*self.cc_activations
-        #out = self.cc_activations * osc * torch.conv3d(bd.ones_like(self.grid.E), dirs_zerosum, bias=None, padding='same')
-        #TODO - Check the dims work (check out how they are done above)
-        #TODO - should we be setting this or adding it to self.E? 
-        #self.grid.E = torch.conv_transpose3d(self.grid.E, dirs_zerosum, bias=None)
-        #E_tp = torch.permute(self.grid.E[self.x, self.y], (2,3,0,1))[:,0,...]
-        #E_tp = torch.permute(self.grid.E[self.x, self.y], (2,3,0,1))
-        #E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
         E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
-        # Figure out the logic and replace this with the one in the notebook
-        #conv_out = torch.conv_transpose2d(torch.ones_like(E_tp), dirs_zerosum, bias=None, stride=1)
         img_shape_tp = np.array(list(E_tp[:,0,...].shape)) - np.array((0, 2, 2))
-        #conv_out = torch.conv_transpose3d(torch.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
         conv_out = torch.conv_transpose2d(torch.ones(tuple(img_shape_tp)).cuda(), dirs_zerosum, bias=None, stride=1)
+        # Scale the kernel output by the activations and oscillator.
         conv_out_scaled = osc[:,None,None].cuda()*conv_out*self.cc_activations
-        # Sum over the CC dimension
+        # Sum over the CC dimension to calc the final perturbation.
         conv_out_scaled = torch.sum(conv_out_scaled, axis=1).cpu()
-        # self.grid.E[self.x, self.y, self.z, self._Epol] = 
         # Add perturbation to grid on the Z axis.
         self.grid.E[self.x, self.y, :, -1] += torch.permute(conv_out_scaled, (1,2,0))
 
