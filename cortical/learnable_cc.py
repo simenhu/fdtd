@@ -76,7 +76,7 @@ grid[20:52,20:52,0] = fdtd.CorticalColumnPlaneSource(
 
 midpoint_y = grid.shape[0]//2
 midpoint_x = grid.shape[1]//2
-grid[10:gl-10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
+#grid[10:gl-10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
 
 
 # Add a detector
@@ -91,12 +91,9 @@ device = "cuda"
 model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
 
 print('Get object: ', [obj.name for obj in grid.objects])
-#TODO - Add encoder trainable params to this list
-#TODO - Add cc trainable params to this list
 params_to_learn = [obj.inverse_permittivity for obj in grid.objects]
 params_to_learn += [*model.parameters()]
 #learning_rate = 0.00001
-#learning_rate = 1000
 learning_rate = 0.01
 optimizer = optim.SGD(params_to_learn, lr=learning_rate,
                       momentum=momentum)
@@ -121,7 +118,6 @@ def get_sample_img(img_loader):
     _, (example_datas, labels) = next(enumerate(img_loader))
     sample = example_datas[0][0]
     sample = sample.to(device)[None, None, :]
-    print('Generating sample with shape: ', sample.shape)
     return sample
 
 sample = get_sample_img(train_loader)
@@ -145,10 +141,13 @@ for train_step in range(max_train_steps):
     ### X ### - Get a sample from training data
     img = get_sample_img(train_loader)
     ### X ### - Push it through Encoder
-    y = model(img, em_steps)
+    y = model(img, em_steps, visualize=True)
     ### X ### - Generate loss
     loss = loss_fn(y, img)
     print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
+    print('Model cc_dirs: ', torch.sum(model.cc_dirs)) 
+    print('Model cc_freqs: ', torch.sum(model.cc_freqs))
+    print('Model cc_phases: ', torch.sum(model.cc_phases))
     optimizer.zero_grad()
     ### X ### - Backprop
     loss.backward(retain_graph=True)

@@ -55,20 +55,12 @@ class AutoEncoder(nn.Module):
         # Direction of E field perturbations
         # (output (E field), input (E field), kernel_T, kernel_H, kernel_W)
         # They must sum to zero and we just add them to the E field, no multiplication necessary
-        #self.cc_dirs = 2*torch.rand((1, cc, 3, 3, 3)) - 1
-        #self.cc_dirs = 2*torch.rand((3, cc, 3, 3)) - 1
-        #self.cc_dirs = 2*torch.rand((1, cc, 3, 3, 3)) - 1
-        self.cc_dirs = 2*torch.rand((1, cc, 3, 3)) - 1
-        self.cc_dirs = self.cc_dirs.cuda()
         #TODO - make sure these dir kernels make sense (check the sum)
+        self.cc_dirs = torch.nn.Parameter(2*torch.rand((1, cc, 3, 3)) - 1)
+        self.cc_dirs = self.cc_dirs
 
-        # img (1, 3, H, W) --> features aka CC activations (1, num_cc, H, W) --> 
-        # freq & phase shift are learned for each CC
-        # EM (
-
-        #TODO - add frequency and phase shift params
-        self.cc_freqs = torch.rand((num_ccs))
-        self.cc_phases = torch.rand((num_ccs))
+        self.cc_freqs  = torch.nn.Parameter(torch.rand((num_ccs)))
+        self.cc_phases = torch.nn.Parameter(torch.rand((num_ccs)))
 
     def forward(self, x, em_steps, visualize=False, visualizer_speed=5):
         # Convert image into amplitude, frequency, and phase shift for our CCs.
@@ -82,18 +74,16 @@ class AutoEncoder(nn.Module):
         cc_activations = x
 
         # Seed and start sim
-        print('Printing sources: ', self.em_grid.sources)
         #TODO MAKE SURE THIS IS THE CORRECT SOURCE 
         self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases)
         if(not visualize):
             self.em_grid.run(em_steps , progress_bar=False)
         else:
             for i in range(em_steps//visualizer_speed):
-                grid.run(visualizer_speed, progress_bar=False)
-                grid.visualize(z=0, norm='log', animate=True)
+                self.em_grid.run(visualizer_speed, progress_bar=False)
+                self.em_grid.visualize(z=0, norm='log', animate=True)
                 plt.show()
         # Generate image from a linear combo of E and H
-        #TODO - make sure this shape is correct
         em_field = torch.cat([self.em_grid.E, self.em_grid.H], axis=-1)
         em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
         em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
