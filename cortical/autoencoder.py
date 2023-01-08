@@ -81,7 +81,7 @@ class AutoEncoder(nn.Module):
         else:
             for i in range(em_steps//visualizer_speed):
                 self.em_grid.run(visualizer_speed, progress_bar=False)
-                self.em_grid.visualize(z=0, norm='log', animate=True)
+                self.em_grid.visualize(z=0, norm='log', srccolor=(1,0,0,0.2), animate=True)
                 plt.show()
         # Generate image from a linear combo of E and H
         em_field = torch.cat([self.em_grid.E, self.em_grid.H], axis=-1)

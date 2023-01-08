@@ -545,9 +545,10 @@ class CorticalColumnPlaneSource(PlaneSource):
         polarization: str = 'z',
         num_cortical_columns = 16,
     ):
-        super().__init__(period, amplitude, phase_shift, name, polarization)
-        #TODO - figure out if we really do need a plane source.
-        #TODO - add learnable "direction" kernel
+        #super().__init__(period, amplitude, phase_shift, name, polarization)
+        super().__init__(period, 0, phase_shift, name, polarization)
+        # TODO - I set the amplitude to 0 so that the plane source wouldn't trigger.
+        # Maybe think of a better way to deal with this (remove the inheritance)?
 
         # Number of cortical columns to use
         self.num_ccs = num_cortical_columns
