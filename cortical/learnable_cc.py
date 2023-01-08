@@ -32,7 +32,8 @@ SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 
 
 grid = fdtd.Grid(
-    (1.5e-5, 1.5e-5, 1),
+    #(1.0e-5, 1.0e-5, 1),
+    (52, 52, 1),
     grid_spacing=0.1 * WAVELENGTH,
     permittivity=1.0,
     permeability=1.0,
@@ -64,7 +65,7 @@ gl = grid.shape[0]
 
 #TODO make sure polarization makes sense
 #TODO make sure this source covers enough of the grid
-grid[20:52,20:52,0] = fdtd.CorticalColumnPlaneSource(
+grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
     period = WAVELENGTH / SPEED_LIGHT,
     polarization = 'x',
     name='cc'
@@ -141,7 +142,11 @@ for train_step in range(max_train_steps):
     ### X ### - Get a sample from training data
     img = get_sample_img(train_loader)
     ### X ### - Push it through Encoder
-    y = model(img, em_steps, visualize=True)
+    if(train_step % 20 == 0):
+        vis = True
+    else:
+        vis = False
+    y = model(img, em_steps, visualize=vis)
     ### X ### - Generate loss
     loss = loss_fn(y, img)
     print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)

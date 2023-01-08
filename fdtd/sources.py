@@ -585,8 +585,8 @@ class CorticalColumnPlaneSource(PlaneSource):
         # Sum over the CC dimension to calc the final perturbation.
         conv_out_scaled = torch.sum(conv_out_scaled, axis=1).cpu()
         # Add perturbation to grid on the Z axis.
-        #self.grid.E[self.x, self.y, :, -1] += torch.permute(conv_out_scaled, (1,2,0))
-        self.grid.E[70, 70, :, -1] += torch.permute(conv_out_scaled, (1,2,0))[0,0]
+        self.grid.E[self.x, self.y, :, -1] += torch.permute(conv_out_scaled, (1,2,0))
+        #self.grid.E[70, 70, :, -1] += torch.permute(conv_out_scaled, (1,2,0))[0,0]
 
 
 class SoftArbitraryPointSource:
