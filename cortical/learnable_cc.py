@@ -77,7 +77,7 @@ grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
 
 # objects
 
-# Commented out to test vis for now.
+#TODO - add this back into the grid.
 # grid[10:-10, 10:-10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
 # 
 
@@ -91,11 +91,13 @@ params_to_learn = [obj.inverse_permittivity for obj in grid.objects]
 params_to_learn += [*model.parameters()]
 #learning_rate = 0.00001
 learning_rate = 0.01
+#learning_rate = 0.1
+#learning_rate = 1.0
 optimizer = optim.SGD(params_to_learn, lr=learning_rate,
                       momentum=momentum)
 mse = torch.nn.MSELoss(reduce=False)
 
-max_train_steps = 100000
+max_train_steps = 1000000000000000
 em_steps = 200 
 
 image_transform = torchvision.transforms.Compose([
@@ -137,7 +139,7 @@ for train_step in range(max_train_steps):
     ### X ### - Get a sample from training data
     img = get_sample_img(train_loader)
     ### X ### - Push it through Encoder
-    if(train_step % 20 == 0):
+    if(train_step % 100 == 0):
         vis = True
     else:
         vis = False

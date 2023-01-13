@@ -40,7 +40,7 @@ def format_imgs(data, output, rows=3):
 
 ## Then define the model class
 class AutoEncoder(nn.Module):
-    def __init__(self, grid, input_chans=3, num_ccs=16, output_chans=3, freq_mean=1550e-9, freq_std=10):
+    def __init__(self, grid, input_chans=3, num_ccs=16, output_chans=3, wavelen_mean=1550e-3, freq_std_div=10):
         super(AutoEncoder, self).__init__()
         self.em_grid = grid
         ic = input_chans
@@ -59,12 +59,12 @@ class AutoEncoder(nn.Module):
         self.cc_dirs = torch.nn.Parameter(2*torch.rand((1, cc, 3, 3)) - 1)
         self.cc_dirs = self.cc_dirs
 
-        means = freq_mean*torch.ones(num_ccs)
-        stds = freq_std*torch.ones(num_ccs)
+        means = 1.0/wavelen_mean*torch.ones(num_ccs)
+        stds = (means/freq_std_div)*torch.ones(num_ccs)
         self.cc_freqs  = torch.nn.Parameter(torch.normal(mean=means, std=stds))
         self.cc_phases = torch.nn.Parameter(torch.rand((num_ccs)))
 
-    def forward(self, x, em_steps, visualize=False, visualizer_speed=1):
+    def forward(self, x, em_steps, visualize=False, visualizer_speed=5):
         # Convert image into amplitude, frequency, and phase shift for our CCs.
         x = self.conv1(x)
         x = torch.relu(x)
