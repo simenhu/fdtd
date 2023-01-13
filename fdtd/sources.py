@@ -570,7 +570,7 @@ class CorticalColumnPlaneSource(PlaneSource):
 
     def update_H(self):
         """Add the source to the magnetic field"""
-        print('override the updateH')
+        pass
 
     def update_E(self):
         """Add the source to the electric field"""
@@ -596,11 +596,6 @@ class CorticalColumnPlaneSource(PlaneSource):
         #osc = 100000*np.sin(2 * pi * q * (1550e-2/299_792_458.0))
         #osc = 100000*np.sin(2 * pi * q * (1550e-2/299_792_458.0))
         #self.grid.E[25, 25, 0, 2] += osc
-        print("OSC: ", osc)
-        print("E: ", self.grid.E.shape) 
-        print("E2: ", self.grid.E[20, 20, 0, 2].shape)
-        print("T: ", torch.permute(conv_out_scaled, (1,2,0)).shape)
-        #self.grid.E[70, 70, :, -1] += torch.permute(conv_out_scaled, (1,2,0))[0,0]
 
 
 class SoftArbitraryPointSource:
