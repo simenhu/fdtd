@@ -107,6 +107,7 @@ class PointSource:
         else:
             src = self.amplitude * sin(2 * pi * q / self.period + self.phase_shift)
         self.grid.E[self.x, self.y, self.z, 2] += src
+        print("EEEE: ", [self.x, self.y, self.z, 2])
 
     def update_H(self):
         """Add the source to the magnetic field"""
@@ -567,6 +568,10 @@ class CorticalColumnPlaneSource(PlaneSource):
         self.cc_freqs  = cc_freqs
         self.cc_phases = cc_phases
 
+    def update_H(self):
+        """Add the source to the magnetic field"""
+        print('override the updateH')
+
     def update_E(self):
         """Add the source to the electric field"""
         if(self.cc_dirs is None):
@@ -586,6 +591,15 @@ class CorticalColumnPlaneSource(PlaneSource):
         conv_out_scaled = torch.sum(conv_out_scaled, axis=1).cpu()
         # Add perturbation to grid on the Z axis.
         self.grid.E[self.x, self.y, :, -1] += torch.permute(conv_out_scaled, (1,2,0))
+        #self.grid.E[20, 20, 0, -1] += torch.permute(conv_out_scaled, (1,2,0))[20, 20, 0]
+        #self.grid.E[20, 20, 0, -1] += torch.permute(conv_out_scaled, (1,2,0))[20, 20, 0]
+        #osc = 100000*np.sin(2 * pi * q * (1550e-2/299_792_458.0))
+        #osc = 100000*np.sin(2 * pi * q * (1550e-2/299_792_458.0))
+        #self.grid.E[25, 25, 0, 2] += osc
+        print("OSC: ", osc)
+        print("E: ", self.grid.E.shape) 
+        print("E2: ", self.grid.E[20, 20, 0, 2].shape)
+        print("T: ", torch.permute(conv_out_scaled, (1,2,0)).shape)
         #self.grid.E[70, 70, :, -1] += torch.permute(conv_out_scaled, (1,2,0))[0,0]
 
 

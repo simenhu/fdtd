@@ -11,8 +11,11 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torchvision
+from torch.utils.tensorboard import SummaryWriter
 from autoencoder import AutoEncoder
 
+# Writer will output to ./runs/ directory by default
+writer = SummaryWriter()
 
 # ## Set Backend
 fdtd.set_backend("torch")
@@ -20,7 +23,6 @@ fdtd.set_backend("torch")
 
 # ## Constants
 WAVELENGTH = 1550e-9
-WAVELENGTH2 = 1550e-8
 SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 
 
@@ -32,7 +34,6 @@ SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 
 
 grid = fdtd.Grid(
-    #(1.0e-5, 1.0e-5, 1),
     (52, 52, 1),
     grid_spacing=0.1 * WAVELENGTH,
     permittivity=1.0,
@@ -59,10 +60,6 @@ grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
 gl = grid.shape[0]
 
-# grid[gl//2,gl//5,0] = fdtd.PointSource(
-#     period = WAVELENGTH / SPEED_LIGHT,
-# )
-
 #TODO make sure polarization makes sense
 #TODO make sure this source covers enough of the grid
 grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
@@ -71,20 +68,18 @@ grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
     name='cc'
 )
 
+# grid[35,35,0] = fdtd.PointSource(
+#     period = WAVELENGTH / SPEED_LIGHT,
+#     name='ps'
+# )
+
 # detectors
 
 # objects
 
-midpoint_y = grid.shape[0]//2
-midpoint_x = grid.shape[1]//2
-#grid[10:gl-10, midpoint_x-10:midpoint_x+10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
-
-
-# Add a detector
-#my_detector = fdtd.LineDetector(name="detector")
-#grid[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] = my_detector
-
-
+# Commented out to test vis for now.
+# grid[10:-10, 10:-10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
+# 
 
 momentum = 0.5
 device = "cuda"
@@ -147,18 +142,29 @@ for train_step in range(max_train_steps):
     else:
         vis = False
     y = model(img, em_steps, visualize=vis)
+    # Add images to tensorboard
+    img_grid = torchvision.utils.make_grid([img[0,...], y])
+    writer.add_image('images', img_grid, train_step)
     ### X ### - Generate loss
     loss = loss_fn(y, img)
+    writer.add_scalar('Loss', loss, train_step)
     print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
     print('Model cc_dirs: ', torch.sum(model.cc_dirs)) 
     print('Model cc_freqs: ', torch.sum(model.cc_freqs))
     print('Model cc_phases: ', torch.sum(model.cc_phases))
+    writer.add_histogram('cc_dirs', model.cc_dirs, train_step)
+    writer.add_histogram('cc_freqs', model.cc_freqs, train_step)
+    writer.add_histogram('cc_phases', model.cc_phases, train_step)
+
     optimizer.zero_grad()
     ### X ### - Backprop
     loss.backward(retain_graph=True)
     optimizer.step()
     counter += 1
-    grid.visualize(z=0, norm='log', animate=True)
-    plt.show()
+    # if(train_step % 20 == 0):
+    #     img_to_show = torch.permute(y, (1,2,0)).detach().cpu()
+    #     plt.imshow(img_to_show, cmap='gray', interpolation='none')
+    #     plt.show()
 
 
+writer.close()
