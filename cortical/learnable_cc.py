@@ -102,12 +102,12 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
 
 print('All grid objects: ', [obj.name for obj in grid.objects])
-#params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
-#params_to_learn = [get_object_by_name(grid, 'xhigh').inverse_permittivity]
-#params_to_learn = [get_object_by_name(grid, 'ylow').inverse_permittivity]
-#params_to_learn = [get_object_by_name(grid, 'yhigh').inverse_permittivity]
+params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
+params_to_learn = [get_object_by_name(grid, 'xhigh').inverse_permittivity]
+params_to_learn = [get_object_by_name(grid, 'ylow').inverse_permittivity]
+params_to_learn = [get_object_by_name(grid, 'yhigh').inverse_permittivity]
 params_to_learn = [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
-#params_to_learn += [*model.parameters()]
+params_to_learn += [*model.parameters()]
 
 # Optimizer params
 learning_rate = 0.01
