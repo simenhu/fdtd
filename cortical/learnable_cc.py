@@ -113,6 +113,8 @@ params_to_learn += [*model.parameters()]
 learning_rate = 0.1
 optimizer = optim.SGD(params_to_learn, lr=learning_rate, momentum=0.5)
 mse = torch.nn.MSELoss(reduce=False)
+# Loss emphasis (how much on em_loss)
+alpha = 0.001
 
 max_train_steps = 1000000000000000
 em_steps = 200 
@@ -147,17 +149,14 @@ for train_step in range(max_train_steps):
     writer.add_image('images', img_grid, train_step)
 
     # Generate loss
-    #em_loss = loss_fn(img_hat_em, img) 
-    em_loss = 0
+    em_loss = loss_fn(img_hat_em, img) 
+    #em_loss = 0
     aux_loss = loss_fn(img_hat_aux, img) 
-    loss = em_loss + aux_loss
+    loss = alpha*em_loss + (1-alpha)*aux_loss
     writer.add_scalar('EM Loss',  em_loss,  train_step)
     writer.add_scalar('Aux Loss', aux_loss, train_step)
     writer.add_scalar('Total Loss', loss, train_step)
     print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
-    print('Model cc_dirs: ', torch.sum(model.cc_dirs)) 
-    print('Model cc_freqs: ', torch.sum(model.cc_freqs))
-    print('Model cc_phases: ', torch.sum(model.cc_phases))
 
     # Tensorboard
     writer.add_histogram('cc_dirs', model.cc_dirs, train_step)
@@ -170,7 +169,7 @@ for train_step in range(max_train_steps):
     writer.add_histogram('yhigh', get_object_by_name(grid, 'yhigh').inverse_permittivity, train_step)
 
     optimizer.zero_grad()
-    ### X ### - Backprop
+    # Backprop
     loss.backward(retain_graph=True)
     optimizer.step()
     counter += 1
