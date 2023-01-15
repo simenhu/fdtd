@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-
 # Here we demonstrate learning cortical columns.
-
 import sys
 sys.path.append('/home/bij/Projects/fdtd/')
 import math
+import time
 import fdtd
 import fdtd.backend as bd
 import matplotlib.pyplot as plt
@@ -14,6 +13,8 @@ import torch.optim as optim
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
 from autoencoder import AutoEncoder
+
+model_checkpoint_dir = './model_checkpoints/'
 
 #TODO - move this to a util file next cleanup
 def get_sample_img(img_loader):
@@ -113,11 +114,13 @@ params_to_learn += [*model.parameters()]
 learning_rate = 0.01
 optimizer = optim.SGD(params_to_learn, lr=learning_rate, momentum=0.5)
 mse = torch.nn.MSELoss(reduce=False)
+loss_fn = torch.nn.MSELoss()
 # Curriculum: loss emphasis (how much on em_loss)
 alphas = [0.0, 0.01, 0.1, 0.5]
 alpha_steps = [1000, 2000, 8000, math.inf]
 
 max_train_steps = 1000000000000000
+save_interval = 1000
 em_steps = 200 
 
 grid.H.requires_grad = True
@@ -125,11 +128,10 @@ grid.H.retain_grad()
 grid.E.requires_grad = True
 grid.E.retain_grad()
 
-loss_fn = torch.nn.MSELoss()
+# For timing steps
+stopwatch = time.time()
 
 # Train the weights
-counter = 0
-print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
 for train_step in range(max_train_steps):
     # Reset grid and optimizer
     grid.reset()
@@ -143,11 +145,10 @@ for train_step in range(max_train_steps):
     # Get sample from training data
     img = get_sample_img(train_loader)
     img_hat_em, img_hat_aux, em_img = model(img, em_steps, visualize=vis)
-    #img_hat_aux = model(img, em_steps, visualize=vis)
+
     # Add images to tensorboard
     img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em, img_hat_aux[0,...], 
         torch.sum(em_img[0:3,...], axis=0, keepdim=True)])
-    #img_grid = torchvision.utils.make_grid([img[0,...], img_hat_aux[0,...]])
     writer.add_image('images', img_grid, train_step)
 
     # Generate loss
@@ -179,11 +180,15 @@ for train_step in range(max_train_steps):
     # Backprop
     loss.backward(retain_graph=True)
     optimizer.step()
-    counter += 1
-    # if(train_step % 20 == 0):
-    #     img_to_show = torch.permute(y, (1,2,0)).detach().cpu()
-    #     plt.imshow(img_to_show, cmap='gray', interpolation='none')
-    #     plt.show()
+
+    # Save model 
+    if((train_step % save_interval == 0) and (train_step > 0)):
+        torch.save(model.state_dict(), model_checkpoint_dir)
+
+    # Profile performance
+    seconds_per_step = time.time() - stopwatch 
+    writer.add_scalar('seconds_per_step', torch.tensor(seconds_per_step), train_step)
+    stopwatch = time.time()
 
 
 writer.close()

@@ -97,11 +97,11 @@ class AutoEncoder(nn.Module):
                 self.em_grid.run(visualizer_speed, progress_bar=False)
                 self.em_grid.visualize(z=0, norm='log', srccolor=(1,0,0,0.2), animate=True)
                 plt.show()
+
         # Generate image from a linear combo of E and H
         em_field = torch.cat([self.em_grid.E, self.em_grid.H], axis=-1)
         em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
         em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
         x_hat_em = torch.sigmoid(self.conv_linear(em_field))
         return x_hat_em, x_hat_aux, em_field
-        #return x_hat_aux
 
