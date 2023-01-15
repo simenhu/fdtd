@@ -4,6 +4,7 @@
 
 import sys
 sys.path.append('/home/bij/Projects/fdtd/')
+import math
 import fdtd
 import fdtd.backend as bd
 import matplotlib.pyplot as plt
@@ -114,7 +115,8 @@ learning_rate = 0.1
 optimizer = optim.SGD(params_to_learn, lr=learning_rate, momentum=0.5)
 mse = torch.nn.MSELoss(reduce=False)
 # Loss emphasis (how much on em_loss)
-alpha = 0.001
+alphas = [0.0, 0.001, 0.01]
+alpha_steps = [512, 4096, math.inf]
 
 max_train_steps = 1000000000000000
 em_steps = 200 
@@ -141,10 +143,11 @@ for train_step in range(max_train_steps):
         vis = False
     # Get sample from training data
     img = get_sample_img(train_loader)
-    img_hat_em, img_hat_aux = model(img, em_steps, visualize=vis)
+    img_hat_em, img_hat_aux, em_img = model(img, em_steps, visualize=vis)
     #img_hat_aux = model(img, em_steps, visualize=vis)
     # Add images to tensorboard
-    img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em, img_hat_aux[0,...]])
+    img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em, img_hat_aux[0,...], 
+        torch.sum(em_img[0:3,...], axis=0, keepdim=True)])
     #img_grid = torchvision.utils.make_grid([img[0,...], img_hat_aux[0,...]])
     writer.add_image('images', img_grid, train_step)
 
@@ -152,11 +155,15 @@ for train_step in range(max_train_steps):
     em_loss = loss_fn(img_hat_em, img) 
     #em_loss = 0
     aux_loss = loss_fn(img_hat_aux, img) 
-    loss = alpha*em_loss + (1-alpha)*aux_loss
+    # Modify alpha based on training phase
+    if(train_step > alpha_steps[0]):
+        alphas.pop(0)
+        alpha_steps.pop(0) 
+    loss = alphas[0]*em_loss + (1-alphas[0])*aux_loss
     writer.add_scalar('EM Loss',  em_loss,  train_step)
     writer.add_scalar('Aux Loss', aux_loss, train_step)
     writer.add_scalar('Total Loss', loss, train_step)
-    print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
+    print('Step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss, '\tAlpha: ', alphas[0])
 
     # Tensorboard
     writer.add_histogram('cc_dirs', model.cc_dirs, train_step)
