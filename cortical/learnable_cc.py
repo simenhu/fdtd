@@ -110,7 +110,7 @@ params_to_learn = [get_object_by_name(grid, 'cc_substrate').inverse_permittivity
 params_to_learn += [*model.parameters()]
 
 # Optimizer params
-learning_rate = 0.01
+learning_rate = 0.1
 optimizer = optim.SGD(params_to_learn, lr=learning_rate, momentum=0.5)
 mse = torch.nn.MSELoss(reduce=False)
 
@@ -128,23 +128,30 @@ loss_fn = torch.nn.MSELoss()
 counter = 0
 print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
 for train_step in range(max_train_steps):
+    # Reset grid and optimizer
     grid.reset()
     optimizer.zero_grad()
-    ### X ### - Get a sample from training data
-    img = get_sample_img(train_loader)
-    ### X ### - Push it through Encoder
+    # Push it through Encoder
     if((train_step % 100 == 0) and (train_step > 0)):
         #vis = True
         vis = False
     else:
         vis = False
-    y = model(img, em_steps, visualize=vis)
+    # Get sample from training data
+    img = get_sample_img(train_loader)
+    img_hat_em, img_hat_aux = model(img, em_steps, visualize=vis)
     # Add images to tensorboard
-    img_grid = torchvision.utils.make_grid([img[0,...], y])
+    img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em, img_hat_aux[0,...]])
     writer.add_image('images', img_grid, train_step)
-    ### X ### - Generate loss
-    loss = loss_fn(y, img)
-    writer.add_scalar('Loss', loss, train_step)
+
+    # Generate loss
+    #em_loss = loss_fn(img_hat_em, img) 
+    em_loss = 0
+    aux_loss = loss_fn(img_hat_aux, img) 
+    loss = em_loss + aux_loss
+    writer.add_scalar('EM Loss',  em_loss,  train_step)
+    writer.add_scalar('Aux Loss', aux_loss, train_step)
+    writer.add_scalar('Total Loss', loss, train_step)
     print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
     print('Model cc_dirs: ', torch.sum(model.cc_dirs)) 
     print('Model cc_freqs: ', torch.sum(model.cc_freqs))

@@ -52,6 +52,10 @@ class AutoEncoder(nn.Module):
         self.conv4 = nn.Conv2d( 8, cc, kernel_size=5, stride=1, padding='same')
         # Converts E and H fields back into an image with a linear transformation
         self.conv_linear = nn.Conv2d(6, oc, kernel_size=1, stride=1, padding='same')
+        # Converts cc_activations back into an image (for aux loss)
+        self.conv_aux1 = nn.Conv2d( cc,  8, kernel_size=3, stride=1, padding='same')
+        self.conv_aux2 = nn.Conv2d(  8,  8, kernel_size=3, stride=1, padding='same')
+        self.conv_aux3 = nn.Conv2d(  8, oc, kernel_size=3, stride=1, padding='same')
         # Direction of E field perturbations
         # (output (E field), input (E field), kernel_T, kernel_H, kernel_W)
         # They must sum to zero and we just add them to the E field, no multiplication necessary
@@ -66,14 +70,38 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x, em_steps, visualize=False, visualizer_speed=5):
         # Convert image into amplitude, frequency, and phase shift for our CCs.
+        print('Start: ')
+        print(x.shape)
         x = self.conv1(x)
+        print(x.shape)
         x = torch.relu(x)
+        print(x.shape)
         x = self.conv2(x)
+        print(x.shape)
         x = torch.relu(x)
+        print(x.shape)
         x = self.conv3(x)
+        print(x.shape)
         x = torch.relu(x)
+        print(x.shape)
         x = self.conv4(x)
+        print(x.shape)
         cc_activations = x
+        print('cc: ', cc_activations.shape)
+
+        # Generate the aux autoencoder output (activates directly to img)
+        aux = self.conv_aux1(cc_activations)
+        print(aux.shape)
+        aux = torch.relu(aux)
+        print(aux.shape)
+        aux = self.conv_aux2(aux)
+        print(aux.shape)
+        aux = torch.relu(aux)
+        print(aux.shape)
+        aux = self.conv_aux3(aux)
+        print(aux.shape)
+        x_hat_aux = torch.sigmoid(aux)
+        print(x_hat_aux.shape)
 
         # Seed and start sim
         #TODO MAKE SURE THIS IS THE CORRECT SOURCE 
@@ -90,6 +118,6 @@ class AutoEncoder(nn.Module):
         em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
         em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
         print('em_field.shape: ', em_field.shape)
-        y = torch.sigmoid(self.conv_linear(em_field))
-        return y
+        x_hat_em = torch.sigmoid(self.conv_linear(em_field))
+        return x_hat_em, x_hat_aux
 
