@@ -70,38 +70,22 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x, em_steps, visualize=False, visualizer_speed=5):
         # Convert image into amplitude, frequency, and phase shift for our CCs.
-        print('Start: ')
-        print(x.shape)
         x = self.conv1(x)
-        print(x.shape)
         x = torch.relu(x)
-        print(x.shape)
         x = self.conv2(x)
-        print(x.shape)
         x = torch.relu(x)
-        print(x.shape)
         x = self.conv3(x)
-        print(x.shape)
         x = torch.relu(x)
-        print(x.shape)
         x = self.conv4(x)
-        print(x.shape)
         cc_activations = x
-        print('cc: ', cc_activations.shape)
 
         # Generate the aux autoencoder output (activates directly to img)
         aux = self.conv_aux1(cc_activations)
-        print(aux.shape)
         aux = torch.relu(aux)
-        print(aux.shape)
         aux = self.conv_aux2(aux)
-        print(aux.shape)
         aux = torch.relu(aux)
-        print(aux.shape)
         aux = self.conv_aux3(aux)
-        print(aux.shape)
         x_hat_aux = torch.sigmoid(aux)
-        print(x_hat_aux.shape)
 
         # Seed and start sim
         #TODO MAKE SURE THIS IS THE CORRECT SOURCE 
@@ -117,7 +101,6 @@ class AutoEncoder(nn.Module):
         em_field = torch.cat([self.em_grid.E, self.em_grid.H], axis=-1)
         em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
         em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
-        print('em_field.shape: ', em_field.shape)
         x_hat_em = torch.sigmoid(self.conv_linear(em_field))
         return x_hat_em, x_hat_aux, em_field
         #return x_hat_aux
