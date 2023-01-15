@@ -49,12 +49,13 @@ grid = fdtd.Grid(
 print('Grid Shape: ', grid.shape)
 
 
-# boundaries
-grid[0:10, :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xlow")
-grid[-10:, :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xhigh")
+# Boundaries with width bw
+bw = 10
+grid[  0: bw, :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xlow")
+grid[-bw:   , :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xhigh")
 
-grid[:, 0:10, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="ylow")
-grid[:, -10:, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="yhigh")
+grid[:,   0:bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="ylow")
+grid[:, -bw:  , :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="yhigh")
 
 grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
@@ -62,13 +63,10 @@ grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
 # sources
 
-gl = grid.shape[0]
-
-#TODO make sure polarization makes sense
 #TODO make sure this source covers enough of the grid
 grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
     period = WAVELENGTH / SPEED_LIGHT,
-    polarization = 'x',
+    polarization = 'x', # BS value, polarization is not used.
     name='cc'
 )
 
@@ -77,14 +75,9 @@ grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
 #     name='ps'
 # )
 
-# detectors
+# Object defining the cortical column substrate 
+grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
 
-# objects
-
-grid[10:-10, 10:-10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
-
-
-momentum = 0.5
 
 # Make the model
 model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
@@ -97,7 +90,7 @@ learning_rate = 0.01
 #learning_rate = 0.1
 #learning_rate = 1.0
 optimizer = optim.SGD(params_to_learn, lr=learning_rate,
-                      momentum=momentum)
+                      momentum=0.5)
 mse = torch.nn.MSELoss(reduce=False)
 
 max_train_steps = 1000000000000000
