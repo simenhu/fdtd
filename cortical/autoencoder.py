@@ -120,4 +120,5 @@ class AutoEncoder(nn.Module):
         print('em_field.shape: ', em_field.shape)
         x_hat_em = torch.sigmoid(self.conv_linear(em_field))
         return x_hat_em, x_hat_aux
+        #return x_hat_aux
 

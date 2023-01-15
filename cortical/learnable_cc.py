@@ -140,8 +140,10 @@ for train_step in range(max_train_steps):
     # Get sample from training data
     img = get_sample_img(train_loader)
     img_hat_em, img_hat_aux = model(img, em_steps, visualize=vis)
+    #img_hat_aux = model(img, em_steps, visualize=vis)
     # Add images to tensorboard
     img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em, img_hat_aux[0,...]])
+    #img_grid = torchvision.utils.make_grid([img[0,...], img_hat_aux[0,...]])
     writer.add_image('images', img_grid, train_step)
 
     # Generate loss
