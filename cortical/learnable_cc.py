@@ -83,7 +83,6 @@ grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
 # sources
 
-#TODO make sure this source covers enough of the grid
 grid[bw:bw+ih,bw:bw+iw,0] = fdtd.CorticalColumnPlaneSource(
     period = WAVELENGTH / SPEED_LIGHT,
     polarization = 'x', # BS value, polarization is not used.
@@ -103,20 +102,20 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
 
 print('All grid objects: ', [obj.name for obj in grid.objects])
-params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
-params_to_learn = [get_object_by_name(grid, 'xhigh').inverse_permittivity]
-params_to_learn = [get_object_by_name(grid, 'ylow').inverse_permittivity]
-params_to_learn = [get_object_by_name(grid, 'yhigh').inverse_permittivity]
+#params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
+#params_to_learn = [get_object_by_name(grid, 'xhigh').inverse_permittivity]
+#params_to_learn = [get_object_by_name(grid, 'ylow').inverse_permittivity]
+#params_to_learn = [get_object_by_name(grid, 'yhigh').inverse_permittivity]
 params_to_learn = [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
-params_to_learn += [*model.parameters()]
+#params_to_learn += [*model.parameters()]
 
 # Optimizer params
-learning_rate = 0.1
+learning_rate = 0.01
 optimizer = optim.SGD(params_to_learn, lr=learning_rate, momentum=0.5)
 mse = torch.nn.MSELoss(reduce=False)
-# Loss emphasis (how much on em_loss)
-alphas = [0.0, 0.001, 0.01]
-alpha_steps = [512, 4096, math.inf]
+# Curriculum: loss emphasis (how much on em_loss)
+alphas = [0.0, 0.01, 0.1, 0.5]
+alpha_steps = [1000, 2000, 8000, math.inf]
 
 max_train_steps = 1000000000000000
 em_steps = 200 
@@ -153,7 +152,6 @@ for train_step in range(max_train_steps):
 
     # Generate loss
     em_loss = loss_fn(img_hat_em, img) 
-    #em_loss = 0
     aux_loss = loss_fn(img_hat_aux, img) 
     # Modify alpha based on training phase
     if(train_step > alpha_steps[0]):
@@ -163,6 +161,8 @@ for train_step in range(max_train_steps):
     writer.add_scalar('EM Loss',  em_loss,  train_step)
     writer.add_scalar('Aux Loss', aux_loss, train_step)
     writer.add_scalar('Total Loss', loss, train_step)
+    writer.add_scalar('ccsubstate_sum', 
+            torch.sum(get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)
     print('Step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss, '\tAlpha: ', alphas[0])
 
     # Tensorboard
