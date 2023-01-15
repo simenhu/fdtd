@@ -90,6 +90,6 @@ class AutoEncoder(nn.Module):
         em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
         em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
         print('em_field.shape: ', em_field.shape)
-        y = torch.sigmoid(self.conv_linear(em_field.cuda()))
+        y = torch.sigmoid(self.conv_linear(em_field))
         return y
 

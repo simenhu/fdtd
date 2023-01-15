@@ -18,7 +18,13 @@ from autoencoder import AutoEncoder
 writer = SummaryWriter()
 
 # ## Set Backend
-fdtd.set_backend("torch.cuda.float64")
+#backend_name = "torch.cuda.float64"
+backend_name = "torch"
+fdtd.set_backend(backend_name)
+if(backend_name.startswith("torch.cuda")):
+    device = "cuda"
+else:
+    device = "cpu"
 
 
 # ## Constants
@@ -43,9 +49,7 @@ grid = fdtd.Grid(
 print('Grid Shape: ', grid.shape)
 
 
-# boundaries - make them learnable objects
-
-# For some reason these don't reset properly.
+# boundaries
 grid[0:10, :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xlow")
 grid[-10:, :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xhigh")
 
@@ -77,12 +81,11 @@ grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
 
 # objects
 
-#TODO - add this back into the grid.
-# grid[10:-10, 10:-10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
-# 
+grid[10:-10, 10:-10, 0:1] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
+
 
 momentum = 0.5
-device = "cuda"
+
 # Make the model
 model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
 
