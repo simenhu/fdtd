@@ -18,7 +18,7 @@ from autoencoder import AutoEncoder
 writer = SummaryWriter()
 
 # ## Set Backend
-fdtd.set_backend("torch")
+fdtd.set_backend("torch.cuda.float64")
 
 
 # ## Constants

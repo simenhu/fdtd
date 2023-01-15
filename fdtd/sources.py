@@ -588,7 +588,7 @@ class CorticalColumnPlaneSource(PlaneSource):
         # Scale the kernel output by the activations and oscillator.
         conv_out_scaled = osc[:,None,None].cuda()*conv_out*self.cc_activations
         # Sum over the CC dimension to calc the final perturbation.
-        conv_out_scaled = torch.sum(conv_out_scaled, axis=1).cpu()
+        conv_out_scaled = torch.sum(conv_out_scaled, axis=1)
         # Add perturbation to grid on the Z axis.
         self.grid.E[self.x, self.y, :, -1] += torch.permute(conv_out_scaled, (1,2,0))
         #self.grid.E[20, 20, 0, -1] += torch.permute(conv_out_scaled, (1,2,0))[20, 20, 0]
