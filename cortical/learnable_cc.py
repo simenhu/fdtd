@@ -14,38 +14,57 @@ import torchvision
 from torch.utils.tensorboard import SummaryWriter
 from autoencoder import AutoEncoder
 
-# Writer will output to ./runs/ directory by default
+#TODO - move this to a util file next cleanup
+def get_sample_img(img_loader):
+    _, (example_datas, labels) = next(enumerate(img_loader))
+    sample = example_datas[0][0]
+    sample = sample.to(device)[None, None, :]
+    return sample
+
+def get_object_by_name(grid, name):
+    for obj in grid.objects:
+        if(obj.name == name):
+            return obj
+
+# Tensorboard summary writer: outputs to ./runs/ directory
 writer = SummaryWriter()
 
 # ## Set Backend
-#backend_name = "torch.cuda.float64"
 backend_name = "torch"
+#backend_name = "torch.cuda.float64"
 fdtd.set_backend(backend_name)
 if(backend_name.startswith("torch.cuda")):
     device = "cuda"
 else:
     device = "cpu"
 
+image_transform = torchvision.transforms.Compose([
+                               torchvision.transforms.ToTensor()])
+train_dataset = torchvision.datasets.CIFAR10('cifar10/', 
+                                           train=True, 
+                                           download=True,
+                                           transform=image_transform)
+train_loader = torch.utils.data.DataLoader(train_dataset,
+                                           batch_size=1, 
+                                           shuffle=True)
 
-# ## Constants
+
+sample = get_sample_img(train_loader)
+print('Image shape: ', sample.shape)
+ih, iw = tuple(sample.shape[2:4])
+
+# Physics constants
 WAVELENGTH = 1550e-9
 SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 
 
-# ## Simulation
-
 # create FDTD Grid
-
-# In[4]:
-
-
 grid = fdtd.Grid(
     (52, 52, 1),
     grid_spacing=0.1 * WAVELENGTH,
     permittivity=1.0,
     permeability=1.0,
 )
-
 print('Grid Shape: ', grid.shape)
 
 
@@ -64,7 +83,7 @@ grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 # sources
 
 #TODO make sure this source covers enough of the grid
-grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
+grid[bw:bw+ih,bw:bw+iw,0] = fdtd.CorticalColumnPlaneSource(
     period = WAVELENGTH / SPEED_LIGHT,
     polarization = 'x', # BS value, polarization is not used.
     name='cc'
@@ -76,48 +95,27 @@ grid[10:42,10:42,0] = fdtd.CorticalColumnPlaneSource(
 # )
 
 # Object defining the cortical column substrate 
-grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="learnable_object")
+grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="cc_substrate")
 
 
 # Make the model
 model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
 
-print('Get object: ', [obj.name for obj in grid.objects])
-params_to_learn = [obj.inverse_permittivity for obj in grid.objects]
+print('All grid objects: ', [obj.name for obj in grid.objects])
+params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
+params_to_learn = [get_object_by_name(grid, 'xhigh').inverse_permittivity]
+params_to_learn = [get_object_by_name(grid, 'ylow').inverse_permittivity]
+params_to_learn = [get_object_by_name(grid, 'yhigh').inverse_permittivity]
+params_to_learn = [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
 params_to_learn += [*model.parameters()]
-#learning_rate = 0.00001
+
+# Optimizer params
 learning_rate = 0.01
-#learning_rate = 0.1
-#learning_rate = 1.0
-optimizer = optim.SGD(params_to_learn, lr=learning_rate,
-                      momentum=0.5)
+optimizer = optim.SGD(params_to_learn, lr=learning_rate, momentum=0.5)
 mse = torch.nn.MSELoss(reduce=False)
 
 max_train_steps = 1000000000000000
 em_steps = 200 
-
-image_transform = torchvision.transforms.Compose([
-                               torchvision.transforms.ToTensor()])
-train_dataset = torchvision.datasets.CIFAR10('cifar10/', 
-                                           train=True, 
-                                           download=True,
-                                           transform=image_transform)
-#data loaders
-train_loader = torch.utils.data.DataLoader(train_dataset,
-                                           batch_size=1, 
-                                           shuffle=True)
-
-
-def get_sample_img(img_loader):
-    _, (example_datas, labels) = next(enumerate(img_loader))
-    sample = example_datas[0][0]
-    sample = sample.to(device)[None, None, :]
-    return sample
-
-sample = get_sample_img(train_loader)
-print('Sample shape: ', sample.shape)
-# show the data
-plt.imshow(sample.cpu()[0,0,...], cmap='gray', interpolation='none')
 
 grid.H.requires_grad = True
 grid.H.retain_grad()
@@ -135,8 +133,9 @@ for train_step in range(max_train_steps):
     ### X ### - Get a sample from training data
     img = get_sample_img(train_loader)
     ### X ### - Push it through Encoder
-    if(train_step % 100 == 0):
-        vis = True
+    if((train_step % 100 == 0) and (train_step > 0)):
+        #vis = True
+        vis = False
     else:
         vis = False
     y = model(img, em_steps, visualize=vis)
@@ -150,9 +149,16 @@ for train_step in range(max_train_steps):
     print('Model cc_dirs: ', torch.sum(model.cc_dirs)) 
     print('Model cc_freqs: ', torch.sum(model.cc_freqs))
     print('Model cc_phases: ', torch.sum(model.cc_phases))
+
+    # Tensorboard
     writer.add_histogram('cc_dirs', model.cc_dirs, train_step)
     writer.add_histogram('cc_freqs', model.cc_freqs, train_step)
     writer.add_histogram('cc_phases', model.cc_phases, train_step)
+    writer.add_histogram('ccsubstrate', get_object_by_name(grid, 'cc_substrate').inverse_permittivity, train_step)
+    writer.add_histogram('xlow', get_object_by_name(grid, 'xlow').inverse_permittivity, train_step)
+    writer.add_histogram('xhigh', get_object_by_name(grid, 'xhigh').inverse_permittivity, train_step)
+    writer.add_histogram('ylow', get_object_by_name(grid, 'ylow').inverse_permittivity, train_step)
+    writer.add_histogram('yhigh', get_object_by_name(grid, 'yhigh').inverse_permittivity, train_step)
 
     optimizer.zero_grad()
     ### X ### - Backprop
