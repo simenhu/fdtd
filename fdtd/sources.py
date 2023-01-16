@@ -584,7 +584,7 @@ class CorticalColumnPlaneSource(PlaneSource):
         dirs_zerosum = self.cc_dirs/torch.sum(torch.reshape(self.cc_dirs, (1, self.cc_dirs.shape[1], -1)), axis=-1)[:,:,None,None]
         E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
         img_shape_tp = np.array(list(E_tp[:,0,...].shape)) - np.array((0, 2, 2))
-        conv_out = torch.conv_transpose2d(torch.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
+        conv_out = torch.conv_transpose2d(bd.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
         # Scale the kernel output by the activations and oscillator.
         conv_out_scaled = osc[:,None,None]*conv_out*self.cc_activations
         # Sum over the CC dimension to calc the final perturbation.
