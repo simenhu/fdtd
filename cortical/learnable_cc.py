@@ -15,6 +15,8 @@ from torch.utils.tensorboard import SummaryWriter
 from autoencoder import AutoEncoder
 
 model_checkpoint_dir = './model_checkpoints/'
+#TODO - add functionality to bootstrap models
+model_bootstrap_dir = './bootstrap/'
 
 #TODO - move this to a util file next cleanup
 def get_sample_img(img_loader):
@@ -183,7 +185,7 @@ for train_step in range(max_train_steps):
 
     # Save model 
     if((train_step % save_interval == 0) and (train_step > 0)):
-        torch.save(model.state_dict(), model_checkpoint_dir)
+        torch.save(model.state_dict(), model_checkpoint_dir + 'model_' + str(train_step).zfill(12) + '.pt')
 
     # Profile performance
     seconds_per_step = time.time() - stopwatch 
