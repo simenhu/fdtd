@@ -136,8 +136,7 @@ for train_step in range(max_train_steps):
     optimizer.zero_grad()
     # Push it through Encoder
     if((train_step % 100 == 0) and (train_step > 0)):
-        #vis = True
-        vis = False
+        vis = True
     else:
         vis = False
     # Get sample from training data
