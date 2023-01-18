@@ -105,3 +105,45 @@ class AutoEncoder(nn.Module):
         x_hat_em = torch.sigmoid(self.conv_linear(em_field))
         return x_hat_em, x_hat_aux, em_field
 
+class DummyEncoder(nn.Module):
+    def __init__(self, grid, input_img, input_chans=3, num_ccs=16, output_chans=3, wavelen_mean=1550e-3, freq_std_div=10):
+        super(DummyEncoder, self).__init__()
+        self.em_grid = grid
+        ic = input_chans
+        cc = num_ccs
+        oc = output_chans
+        # Converts E and H fields back into an image with a linear transformation
+        self.conv_linear = nn.Conv2d(6, oc, kernel_size=1, stride=1, padding='same')
+        # Converts cc_activations back into an image (for aux loss)
+        # Direction of E field perturbations
+        # (output (E field), input (E field), kernel_T, kernel_H, kernel_W)
+        # They must sum to zero and we just add them to the E field, no multiplication necessary
+        #TODO - make sure these dir kernels make sense (check the sum)
+        self.cc_dirs = torch.nn.Parameter(2*torch.rand((1, cc, 3, 3)) - 1)
+        self.cc_dirs = self.cc_dirs
+
+        means = 1.0/wavelen_mean*torch.ones(num_ccs)
+        stds = (means/freq_std_div)*torch.ones(num_ccs)
+        self.cc_freqs  = torch.nn.Parameter(torch.normal(mean=means, std=stds))
+        self.cc_phases = torch.nn.Parameter(torch.rand((num_ccs)))
+        self.cc_activations = torch.nn.Parameter(torch.rand((1, 1, input_img.shape[-1], input_img.shape[-2])))
+        print('input img shape: ', input_img.shape)
+        print('Activations shaep: ', self.cc_activations.shape)
+
+    def forward(self, x, em_steps, visualize=False, visualizer_speed=5):
+        self.em_grid.sources[0].seed(self.cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases)
+        if(not visualize):
+            self.em_grid.run(em_steps , progress_bar=False)
+        else:
+            for i in range(em_steps//visualizer_speed):
+                self.em_grid.run(visualizer_speed, progress_bar=False)
+                self.em_grid.visualize(z=0, norm='log', srccolor=(1,0,0,0.2), animate=True)
+                plt.show()
+
+        # Generate image from a linear combo of E and H
+        em_field = torch.cat([self.em_grid.E, self.em_grid.H], axis=-1)
+        em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
+        em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
+        x_hat_em = torch.sigmoid(self.conv_linear(em_field))
+        return x_hat_em, em_field
+
