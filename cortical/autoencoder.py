@@ -130,20 +130,31 @@ class DummyEncoder(nn.Module):
         print('input img shape: ', input_img.shape)
         print('Activations shaep: ', self.cc_activations.shape)
 
-    def forward(self, x, em_steps, visualize=False, visualizer_speed=5):
+    def forward(self, x, min_em_steps, max_em_steps, num_samples=3, visualize=False, visualizer_speed=5):
         self.em_grid.sources[0].seed(self.cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases)
-        if(not visualize):
-            self.em_grid.run(em_steps , progress_bar=False)
-        else:
-            for i in range(em_steps//visualizer_speed):
-                self.em_grid.run(visualizer_speed, progress_bar=False)
-                self.em_grid.visualize(z=0, norm='log', srccolor=(1,0,0,0.2), animate=True)
-                plt.show()
+        em_field_samples = []
+        for sample_idx in range(num_samples):
+            if(sample_idx == 0):
+                em_steps = min_em_steps
+            else:
+                em_steps = (max_em_steps - min_em_steps)//(num_samples-1)
+            if(not visualize):
+                self.em_grid.run(em_steps , progress_bar=False)
+            else:
+                for i in range(em_steps//visualizer_speed):
+                    self.em_grid.run(visualizer_speed, progress_bar=False)
+                    self.em_grid.visualize(z=0, norm='log', srccolor=(1,0,0,0.2), animate=True)
+                    plt.show()
+            # Gather the EM field for this sample
+            em_field = torch.cat([self.em_grid.E, self.em_grid.H], axis=-1)
+            em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
+            em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
+            em_field_samples += [torch.clone(em_field)]
+
+        # Combine samples into a batch
+        em_field_samples = torch.stack(em_field_samples)
 
         # Generate image from a linear combo of E and H
-        em_field = torch.cat([self.em_grid.E, self.em_grid.H], axis=-1)
-        em_field = em_field[self.em_grid.sources[0].x, self.em_grid.sources[0].y]
-        em_field = torch.permute(torch.squeeze(em_field), (2,0,1))
-        x_hat_em = torch.sigmoid(self.conv_linear(em_field))
-        return x_hat_em, em_field
+        x_hats = torch.sigmoid(self.conv_linear(em_field_samples))
+        return x_hats, em_field_samples
 

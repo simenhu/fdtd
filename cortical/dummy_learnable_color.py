@@ -158,20 +158,25 @@ for train_step in range(max_train_steps):
     grid.reset()
     optimizer.zero_grad()
     # Push it through Encoder
-    if((train_step % 100 == 0) and (train_step > 0)):
+    #if((train_step % 100 == 0) and (train_step > 0)):
+    if((train_step % 100 == 0)):
         vis = True
     else:
         vis = False
+
+    num_samples = 3
     # Get sample from training data
-    img_hat_em, em_field = dummy_model(img, em_steps, visualize=vis)
-    e_field_img = em_field[0:3,...]
-    h_field_img = em_field[3:6,...]
+    img_hat_em, em_field = dummy_model(img, min_em_steps=120, max_em_steps=240, num_samples=num_samples, visualize=vis)
+    e_field_img = em_field[:, 0:3,...]
+    h_field_img = em_field[:, 3:6,...]
 
     # Add images to tensorboard
-    img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
-        norm_img_by_chan(e_field_img), 
-        norm_img_by_chan(h_field_img)])
-    writer.add_image('images', img_grid, train_step)
+    for s in range(num_samples):
+        img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em[s],
+            norm_img_by_chan(e_field_img[s]), 
+            norm_img_by_chan(h_field_img[s])])
+        writer.add_image('sample_'+str(s), img_grid, train_step)
+
     perm = torch.reshape(get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, 32, 32))
     writer.add_image('ccsubstrate1', perm[0:3,...], train_step)
     writer.add_image('ccsubstrate2', perm[3:6,...], train_step)
