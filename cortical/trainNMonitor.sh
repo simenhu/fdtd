@@ -1,5 +1,7 @@
 #!/bin/sh 
-tmux new-session -s 'train' -d 'python learnable_cc.py'
+#tmux new-session -s 'train' -d 'python learnable_cc.py'
+#tmux new-session -s 'train' -d 'python dummy_learnable.py'
+tmux new-session -s 'train' -d 'python dummy_learnable_color.py'
 tmux split-window -h 'watch -n 0.1 nvidia-smi'
 tmux split-window -v 'htop'
 tmux rename-window 'Monitor'

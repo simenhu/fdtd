@@ -1,2 +1,5 @@
+# Purpose
 This branch explores producing several images from the EM output, each from different time steps. 
 This encourages the encoder/decoder to produce a mapping between EM and image that is stable across time.
+
+# Results
