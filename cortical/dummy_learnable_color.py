@@ -20,16 +20,38 @@ model_checkpoint_dir = './model_checkpoints/'
 model_bootstrap_dir = './bootstrap/'
 
 #TODO - move this to a util file next cleanup
-def get_sample_img(img_loader):
+def get_sample_img(img_loader, color=True):
     _, (example_datas, labels) = next(enumerate(img_loader))
-    sample = example_datas[0][0]
-    sample = sample.to(device)[None, None, :]
+    if(color):
+        sample = example_datas[0]
+        sample = sample.to(device)[None, :]
+    else:
+        sample = example_datas[0][0]
+        sample = sample.to(device)[None, None, :]
     return sample
 
 def get_object_by_name(grid, name):
     for obj in grid.objects:
         if(obj.name == name):
             return obj
+
+def norm_img_by_chan(img):
+    '''
+    Puts each channel into the range [0,1].
+    Expects input to be in CHW config.
+    '''
+    img_flat = torch.reshape(img, (3, -1))
+    chan_maxes, _ = torch.max(img_flat, dim=-1, keepdims=True) 
+    chan_mins, _  = torch.min(img_flat, dim=-1, keepdims=True) 
+    chans_dynamic_range = chan_maxes - chan_mins
+    normed_img = (img - chan_mins[...,None])/(chans_dynamic_range[...,None])
+    #normed_img_flat = torch.reshape(normed_img, (3, -1))
+    #print('Normed maxes: ', torch.max(normed_img_flat, dim=-1, keepdim=True)[0])
+    #print('Normed mins: ', torch.min(normed_img_flat, dim=-1, keepdim=True)[0])
+    return normed_img 
+
+
+
 
 # Tensorboard summary writer: outputs to ./runs/ directory
 writer = SummaryWriter()
@@ -101,7 +123,7 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 img = get_sample_img(train_loader)
 
 # Make the model
-dummy_model = DummyEncoder(grid=grid, input_img=img, input_chans=1, output_chans=1).to(device)
+dummy_model = DummyEncoder(grid=grid, input_img=img, input_chans=3, output_chans=3).to(device)
 
 print('All grid objects: ', [obj.name for obj in grid.objects])
 params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
@@ -141,11 +163,14 @@ for train_step in range(max_train_steps):
     else:
         vis = False
     # Get sample from training data
-    img_hat_em, em_img = dummy_model(img, em_steps, visualize=vis)
+    img_hat_em, em_field = dummy_model(img, em_steps, visualize=vis)
+    e_field_img = em_field[0:3,...]
+    h_field_img = em_field[3:6,...]
 
     # Add images to tensorboard
     img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
-        torch.sum(em_img[0:3,...], axis=0, keepdim=True)])
+        norm_img_by_chan(e_field_img), 
+        norm_img_by_chan(h_field_img)])
     writer.add_image('images', img_grid, train_step)
     perm = torch.reshape(get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, 32, 32))
     writer.add_image('ccsubstrate1', perm[0:3,...], train_step)
@@ -170,6 +195,8 @@ for train_step in range(max_train_steps):
     writer.add_histogram('xhigh', get_object_by_name(grid, 'xhigh').inverse_permittivity, train_step)
     writer.add_histogram('ylow', get_object_by_name(grid, 'ylow').inverse_permittivity, train_step)
     writer.add_histogram('yhigh', get_object_by_name(grid, 'yhigh').inverse_permittivity, train_step)
+    writer.add_histogram('e_field', e_field_img, train_step)
+    writer.add_histogram('h_field', h_field_img, train_step)
 
     optimizer.zero_grad()
     # Backprop
