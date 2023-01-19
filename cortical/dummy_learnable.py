@@ -108,7 +108,8 @@ params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
 params_to_learn = [get_object_by_name(grid, 'xhigh').inverse_permittivity]
 params_to_learn = [get_object_by_name(grid, 'ylow').inverse_permittivity]
 params_to_learn = [get_object_by_name(grid, 'yhigh').inverse_permittivity]
-params_to_learn = [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
+#TODO - disabling substrate learning for now
+#params_to_learn = [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
 params_to_learn += [*dummy_model.parameters()]
 
 # Optimizer params
@@ -146,6 +147,10 @@ for train_step in range(max_train_steps):
     img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
         torch.sum(em_img[0:3,...], axis=0, keepdim=True)])
     writer.add_image('images', img_grid, train_step)
+    perm = torch.reshape(get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, 32, 32))
+    writer.add_image('ccsubstrate1', perm[0:3,...], train_step)
+    writer.add_image('ccsubstrate2', perm[3:6,...], train_step)
+    writer.add_image('ccsubstrate3', perm[6:9,...], train_step)
 
     # Generate loss
     loss = loss_fn(img_hat_em, img) 
