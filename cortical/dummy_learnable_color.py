@@ -71,9 +71,10 @@ train_dataset = torchvision.datasets.CIFAR10('cifar10/',
                                            train=True, 
                                            download=True,
                                            transform=image_transform)
+#TODO - turn SHUFFLE back to TRUE for training on multiple images.
 train_loader = torch.utils.data.DataLoader(train_dataset,
                                            batch_size=1, 
-                                           shuffle=True)
+                                           shuffle=False)
 
 
 sample = get_sample_img(train_loader)
@@ -81,34 +82,41 @@ print('Image shape: ', sample.shape)
 ih, iw = tuple(sample.shape[2:4])
 
 # Physics constants
-WAVELENGTH = 1550e-9
+WAVELENGTH = 1550e-9 # meters
 SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
+GRID_SPACING = 0.1 * WAVELENGTH # meters
 
 
-# create FDTD Grid
+
+# Size of grid boundary layer
+bw = 10
+# Create FDTD Grid
+grid_h, grid_w = (ih+bw*2, iw+bw*2)
+# Boundaries with width bw
 grid = fdtd.Grid(
-    (52, 52, 1),
-    grid_spacing=0.1 * WAVELENGTH,
+    (grid_h, grid_w, 1),
+    grid_spacing=GRID_SPACING,
     permittivity=1.0,
     permeability=1.0,
 )
-print('Grid Shape: ', grid.shape)
+
+# Calculate how long it takes a wave to cross the entire grid.
+grid_diag_cells = math.sqrt(grid_h**2 + grid_w**2)
+grid_diag_len = grid_diag_cells * GRID_SPACING
+grid_diag_steps = int(grid_diag_len/SPEED_LIGHT/grid.time_step)+1
+print('Time Steps to Cover Entire Grid: ', grid_diag_steps)
 
 
-# Boundaries with width bw
-bw = 10
+# Create learnable objects at the boundaries
 grid[  0: bw, :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xlow")
 grid[-bw:   , :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xhigh")
-
 grid[:,   0:bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="ylow")
 grid[:, -bw:  , :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="yhigh")
-
 grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
 
 
-# sources
-
+# Creat the cortical column sources
 grid[bw:bw+ih,bw:bw+iw,0] = fdtd.CorticalColumnPlaneSource(
     period = WAVELENGTH / SPEED_LIGHT,
     polarization = 'x', # BS value, polarization is not used.
@@ -159,14 +167,14 @@ for train_step in range(max_train_steps):
     optimizer.zero_grad()
     # Push it through Encoder
     #if((train_step % 100 == 0) and (train_step > 0)):
-    if((train_step % 100 == 0)):
+    if((train_step % 500 == 0)):
         vis = True
     else:
         vis = False
 
-    num_samples = 3
+    num_samples = 2 
     # Get sample from training data
-    img_hat_em, em_field = dummy_model(img, min_em_steps=120, max_em_steps=240, num_samples=num_samples, visualize=vis)
+    img_hat_em, em_field = dummy_model(img, min_em_steps=grid_diag_steps, max_em_steps=2*grid_diag_steps, num_samples=num_samples, visualize=vis)
     e_field_img = em_field[:, 0:3,...]
     h_field_img = em_field[:, 3:6,...]
 
