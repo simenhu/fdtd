@@ -4,6 +4,7 @@
 import git
 import sys
 import datetime
+from pathlib import Path
 sys.path.append('/home/bij/Projects/fdtd/')
 import math
 import time
@@ -16,10 +17,6 @@ import torch.optim as optim
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
 from autoencoder import DummyEncoder
-
-model_checkpoint_dir = './model_checkpoints/'
-#TODO - add functionality to bootstrap models
-model_bootstrap_dir = './bootstrap/'
 
 #TODO - move this to a util file next cleanup
 def get_sample_img(img_loader, color=True):
@@ -61,9 +58,17 @@ repo = git.Repo(search_parent_directories=True)
 sha = repo.head.object.hexsha
 #head = repo.head
 local_branch = repo.active_branch.name
-log_dir = tb_parent_dir + local_branch + '/' + sha[-3:] + '/' +  datetime.datetime.now().isoformat(timespec='seconds') + '/'
-print('TB Log Directory is: ', log_dir)
-writer = SummaryWriter(log_dir=log_dir)
+run_dir = local_branch + '/' + sha[-3:] + '/' +  datetime.datetime.now().isoformat(timespec='seconds') + '/'
+print('TB Log Directory is: ', tb_parent_dir + run_dir)
+writer = SummaryWriter(log_dir=tb_parent_dir + run_dir)
+
+# Setup model saving
+model_parent_dir = './model_checkpoints/'
+model_checkpoint_dir = model_parent_dir + run_dir
+path = Path(model_checkpoint_dir)
+path.mkdir(parents=True)
+#TODO - add functionality to bootstrap models
+
 
 # ## Set Backend
 backend_name = "torch"
@@ -227,7 +232,7 @@ for train_step in range(max_train_steps):
 
     # Save model 
     if((train_step % save_interval == 0) and (train_step > 0)):
-        torch.save(dummy_model.state_dict(), model_checkpoint_dir + 'model_' + str(train_step).zfill(12) + '.pt')
+        torch.save(dummy_model.state_dict(), model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.pt')
 
     # Profile performance
     seconds_per_step = time.time() - stopwatch 
