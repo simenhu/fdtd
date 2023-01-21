@@ -186,8 +186,8 @@ for train_step in range(max_train_steps):
         vis = False
 
     num_samples = 1
-    jitter = 0.2*(np.random.rand(1) - 0.5) * 2*max_em_steps
-    em_steps = 2*max_em_steps + jitter
+    jitter = 0.2*(np.random.rand(1) - 0.5) * 2*grid_diag_steps
+    em_steps = int(2*grid_diag_steps + jitter)
     # Get sample from training data
     img_hat_em, em_field = dummy_model(img, min_em_steps=em_steps, max_em_steps=em_steps, num_samples=num_samples, visualize=vis)
     e_field_img = em_field[:, 0:3,...]
