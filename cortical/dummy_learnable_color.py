@@ -157,8 +157,7 @@ params_to_learn = [get_object_by_name(grid, 'yhigh').inverse_permittivity]
 params_to_learn += [*dummy_model.parameters()]
 
 # Optimizer params
-learning_rate = 0.01
-optimizer = optim.SGD(params_to_learn, lr=learning_rate, momentum=0.5)
+optimizer = optim.AdamW(params, lr=0.01, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
 mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
 
