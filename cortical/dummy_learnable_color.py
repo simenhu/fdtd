@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # This is a test. We try to learn to represent a SINGLE image in the EM field.
 
+import git
 import sys
+import datetime
 sys.path.append('/home/bij/Projects/fdtd/')
 import math
 import time
@@ -53,8 +55,15 @@ def norm_img_by_chan(img):
 
 
 
-# Tensorboard summary writer: outputs to ./runs/ directory
-writer = SummaryWriter()
+# Setup tensorboard
+tb_parent_dir = './runs/'
+repo = git.Repo(search_parent_directories=True)
+sha = repo.head.object.hexsha
+#head = repo.head
+local_branch = repo.active_branch.name
+log_dir = tb_parent_dir + local_branch + '/' + sha[-3:] + '/' +  datetime.datetime.now().isoformat(timespec='seconds') + '/'
+print('TB Log Directory is: ', log_dir)
+writer = SummaryWriter(log_dir=log_dir)
 
 # ## Set Backend
 backend_name = "torch"
