@@ -120,13 +120,12 @@ class DummyEncoder(nn.Module):
         # They must sum to zero and we just add them to the E field, no multiplication necessary
         #TODO - make sure these dir kernels make sense (check the sum)
         self.cc_dirs = torch.nn.Parameter(2*torch.rand((1, cc, 3, 3)) - 1)
-        self.cc_dirs = self.cc_dirs
 
         means = 1.0/wavelen_mean*torch.ones(num_ccs)
         stds = (means/freq_std_div)*torch.ones(num_ccs)
         self.cc_freqs  = torch.nn.Parameter(torch.normal(mean=means, std=stds))
         self.cc_phases = torch.nn.Parameter(torch.rand((num_ccs)))
-        self.cc_activations = torch.nn.Parameter(torch.rand((1, 1, input_img.shape[-1], input_img.shape[-2])))
+        self.cc_activations = torch.nn.Parameter(torch.rand((1, num_ccs, input_img.shape[-1], input_img.shape[-2])))
         print('input img shape: ', input_img.shape)
         print('Activations shaep: ', self.cc_activations.shape)
 
