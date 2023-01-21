@@ -164,7 +164,6 @@ loss_fn = torch.nn.MSELoss()
 
 max_train_steps = 1000000000000000
 save_interval = 1000
-em_steps = 200 
 
 grid.H.requires_grad = True
 grid.H.retain_grad()
@@ -186,9 +185,11 @@ for train_step in range(max_train_steps):
     else:
         vis = False
 
-    num_samples = 2 
+    num_samples = 1
+    jitter = 0.2*(np.random.rand(1) - 0.5) * 2*max_em_steps
+    em_steps = 2*max_em_steps + jitter
     # Get sample from training data
-    img_hat_em, em_field = dummy_model(img, min_em_steps=grid_diag_steps, max_em_steps=2*grid_diag_steps, num_samples=num_samples, visualize=vis)
+    img_hat_em, em_field = dummy_model(img, min_em_steps=em_steps, max_em_steps=em_steps, num_samples=num_samples, visualize=vis)
     e_field_img = em_field[:, 0:3,...]
     h_field_img = em_field[:, 3:6,...]
 
@@ -208,6 +209,7 @@ for train_step in range(max_train_steps):
     loss = loss_fn(img_hat_em, img) 
 
     writer.add_scalar('Total Loss', loss, train_step)
+    writer.add_scalar('em_steps', em_steps, train_step)
     writer.add_scalar('ccsubstate_sum', 
             torch.sum(get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)
 
