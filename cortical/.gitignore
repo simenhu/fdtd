@@ -1,0 +1,4 @@
+model_checkpoints/*
+cifar10/*
+bootstrap/*
+runs/*
