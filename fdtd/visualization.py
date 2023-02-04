@@ -37,6 +37,7 @@ def visualize(
     srccolor="C0",
     detcolor="C2",
     norm="linear",
+    plot_both_fields=False,
     show=False,  # default False to allow animate to be true
     animate=False,  # True to see frame by frame states of grid while running simulation
     index=None,  # index for each frame of animation (visualize fn runs in a loop, loop variable is passed as index)
@@ -116,28 +117,33 @@ def visualize(
     plt.plot([], lw=3, color=detcolor, label="Detectors")
 
     # Grid energy
-    grid_energy = bd.sum(grid.E ** 2 + grid.H ** 2, -1)
+    #grid_energy = bd.sum(grid.E ** 2 + grid.H ** 2, -1)
+    grid_energy_E = bd.sum(grid.E ** 2, -1)
+    grid_energy_H = bd.sum(grid.H ** 2, -1)
     if x is not None:
         assert grid.Ny > 1 and grid.Nz > 1
         xlabel, ylabel = "y", "z"
         Nx, Ny = grid.Ny, grid.Nz
         pbx, pby = _PeriodicBoundaryY, _PeriodicBoundaryZ
         pmlxl, pmlxh, pmlyl, pmlyh = _PMLYlow, _PMLYhigh, _PMLZlow, _PMLZhigh
-        grid_energy = grid_energy[x, :, :]
+        grid_energy_E = grid_energy_E[x, :, :]
+        grid_energy_H = grid_energy_H[x, :, :]
     elif y is not None:
         assert grid.Nx > 1 and grid.Nz > 1
         xlabel, ylabel = "z", "x"
         Nx, Ny = grid.Nz, grid.Nx
         pbx, pby = _PeriodicBoundaryZ, _PeriodicBoundaryX
         pmlxl, pmlxh, pmlyl, pmlyh = _PMLZlow, _PMLZhigh, _PMLXlow, _PMLXhigh
-        grid_energy = grid_energy[:, y, :].T
+        grid_energy_E = grid_energy_E[:, y, :].T
+        grid_energy_H = grid_energy_H[:, y, :].T
     elif z is not None:
         assert grid.Nx > 1 and grid.Ny > 1
         xlabel, ylabel = "x", "y"
         Nx, Ny = grid.Nx, grid.Ny
         pbx, pby = _PeriodicBoundaryX, _PeriodicBoundaryY
         pmlxl, pmlxh, pmlyl, pmlyh = _PMLXlow, _PMLXhigh, _PMLYlow, _PMLYhigh
-        grid_energy = grid_energy[:, :, z]
+        grid_energy_E = grid_energy_E[:, :, z]
+        grid_energy_H = grid_energy_H[:, :, z]
     else:
         raise ValueError("Visualization only works for 2D grids")
 
@@ -164,7 +170,8 @@ def visualize(
                 _x = source.x
                 _y = source.y
             plt.plot(_y - 0.5, _x - 0.5, lw=3, marker="o", color=srccolor)
-            grid_energy[_x, _y] = 0  # do not visualize energy at location of source
+            grid_energy_E[_x, _y] = 0  # do not visualize energy at location of source
+            grid_energy_H[_x, _y] = 0  # do not visualize energy at location of source
         elif isinstance(source, PlaneSource):
             if x is not None:
                 _x = (
@@ -306,10 +313,33 @@ def visualize(
         plt.gca().add_patch(patch)
 
     # visualize the energy in the grid
-    cmap_norm = None
-    if norm == "log":
-        cmap_norm = LogNorm(vmin=1e-4, vmax=grid_energy.max() + 1e-4)
-    plt.imshow(bd.numpy(grid_energy.detach()), cmap=cmap, interpolation="sinc", norm=cmap_norm)
+    # Scale assuming a normal distribution
+    def visnorm(x, width=1):
+        # Produce a standard normal distribution
+        mean = x.mean()
+        sigma = x.std()
+        z = (x-mean)/sigma
+        # Map standard normal to [0-1]
+        z_map = (z + width)/(2*width)
+        # Clip to [0,1]
+        mask = (z_map > 0)
+        z_map = z_map*mask
+        z_map = z_map*(z_map < 1) + (z_map > 1)
+        return z_map, mask
+
+    grid_color = bd.zeros((grid_energy_E.shape)+(4,))
+    if(plot_both_fields):
+        grid_color[..., 2], mask = visnorm(grid_energy_E + grid_energy_H)
+    else:
+        grid_color[..., 2], mask_E = visnorm(grid_energy_E)
+        grid_color[..., 0], mask_H = visnorm(grid_energy_H)
+        #mask = mask_E*mask_H
+        mask = ((grid_energy_E + grid_energy_H) > 1e-6)
+    
+    grid_color[..., 1] = 0
+    #grid_color[...,-1] = mask
+    grid_color[...,-1] = 0.5
+    plt.imshow(bd.numpy(grid_color.detach()), interpolation="sinc")
 
     # finalize the plot
     plt.ylabel(xlabel)
