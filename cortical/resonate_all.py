@@ -183,6 +183,7 @@ optimizer = optim.AdamW(params_to_learn, lr=0.001, betas=(0.9, 0.999), eps=1e-08
 mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
 
+em_steps = 200
 max_train_steps = 1000000000000000
 save_interval = 1000
 
@@ -204,13 +205,12 @@ for train_step in range(max_train_steps):
     # Push it through Encoder
     #if((train_step % 100 == 0) and (train_step > 0)):
     if((train_step % 500 == 0) and (train_step > 0)):
+    #if((train_step % 500 == 0)):
         vis = True
     else:
         vis = False
 
     num_samples = 1
-    jitter = 0.2*(np.random.rand(1) - 0.5) * 2*grid_diag_steps
-    em_steps = int(2*grid_diag_steps + jitter)
     # Get sample from training data
     img_hat_em, _, em_field = model(img, em_steps=em_steps, visualize=vis)
     e_field_img = em_field[:, 0:3,...]
