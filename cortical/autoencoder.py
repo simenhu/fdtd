@@ -49,7 +49,10 @@ class AutoEncoder(nn.Module):
         self.conv1 = nn.Conv2d(ic,  8, kernel_size=5, stride=1, padding='same')
         self.conv2 = nn.Conv2d( 8, 16, kernel_size=5, stride=1, padding='same')
         self.conv3 = nn.Conv2d(16,  8, kernel_size=5, stride=1, padding='same')
-        self.conv4 = nn.Conv2d( 8, cc, kernel_size=5, stride=1, padding='same')
+        self.conv4 = nn.Conv2d( 8,  8, kernel_size=5, stride=1, padding='same')
+        self.conv5 = nn.Conv2d( 8,  8, kernel_size=5, stride=1, padding='same')
+        self.conv6 = nn.Conv2d( 8,  8, kernel_size=5, stride=1, padding='same')
+        self.conv7 = nn.Conv2d( 8, cc, kernel_size=5, stride=1, padding='same')
         # Converts E and H fields back into an image with a linear transformation
         self.conv_linear = nn.Conv2d(6, oc, kernel_size=1, stride=1, padding='same')
         # Converts cc_activations back into an image (for aux loss)
@@ -77,6 +80,12 @@ class AutoEncoder(nn.Module):
         x = self.conv3(x)
         x = torch.relu(x)
         x = self.conv4(x)
+        x = torch.relu(x)
+        x = self.conv5(x)
+        x = torch.relu(x)
+        x = self.conv6(x)
+        x = torch.relu(x)
+        x = self.conv7(x)
         cc_activations = x
 
         # Generate the aux autoencoder output (activates directly to img)
