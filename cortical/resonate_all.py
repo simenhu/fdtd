@@ -22,8 +22,12 @@ from os import listdir
 from os.path import isfile, join
 
 parser = argparse.ArgumentParser(description='Process args.')
-parser.add_argument('-s', '--load-step', type=str, default='0',
+parser.add_argument('-l', '--load-step', type=str, default='0',
                     help='Where to start training. If latest, will start at the latest checkpoint.')
+parser.add_argument('-s', '--save-steps', type=int, default='1000',
+                    help='How often to save the model.')
+parser.add_argument('-m', '--max-steps', type=int, default='1000000000000000',
+                    help='How many steps to train.')
 args = parser.parse_args()
 
 #TODO - move this to a util file next cleanup
@@ -53,9 +57,6 @@ def norm_img_by_chan(img):
     chans_dynamic_range = chan_maxes - chan_mins
     normed_img = (img - chan_mins[...,None])/(chans_dynamic_range[...,None])
     return normed_img 
-
-
-
 
 # Setup tensorboard
 tb_parent_dir = './runs/'
@@ -209,8 +210,6 @@ mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
 
 em_steps = 200
-max_train_steps = 1000000000000000
-save_interval = 1000
 
 grid.H.requires_grad = True
 grid.H.retain_grad()
@@ -221,7 +220,7 @@ grid.E.retain_grad()
 stopwatch = time.time()
 
 # Train the weights
-for train_step in range(start_step + 1, start_step + max_train_steps):
+for train_step in range(start_step + 1, start_step + args.max_steps):
     # Generate a new image
     img = toy_img(orig_img, bw)
     # Reset grid and optimizer
@@ -283,7 +282,7 @@ for train_step in range(start_step + 1, start_step + max_train_steps):
     optimizer.step()
 
     # Save model 
-    if((train_step % save_interval == 0) and (train_step > 0)):
+    if((train_step % args.save_steps == 0) and (train_step > 0)):
         torch.save(model.state_dict(), model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.pt')
 
     # Profile performance
