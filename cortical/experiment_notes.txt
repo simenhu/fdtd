@@ -1,4 +1,4 @@
 # Purpose
-We move to three dimensions to better approximate the HSV.
+resonate_all.py shows that we can learn a toy image with no jitter pretty easily.
 
 # Results
