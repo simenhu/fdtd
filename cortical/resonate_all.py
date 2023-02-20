@@ -179,19 +179,18 @@ else:
 orig_img = get_sample_img(train_loader)
 orig_img = bd.zeros(orig_img.shape)
 
-def toy_img(img, bw):
+def toy_img(img):
     img = torch.zeros_like(img)
     x, y, b, s = np.random.rand(4)
-    #max_size = 25
-    #min_size = 8
-    max_size = 18
-    min_size = 10
+    max_size = 14
+    min_size =  6
     max_b = 1.0
     min_b = 0.5
+    x = int(x*(img.shape[-1] - max_size))
+    y = int(y*(img.shape[-2] - max_size))
+    b = float(min_b + b*(max_b - min_b))
     s = int(min_size + s*(max_size - min_size))
-    x = int(x*img.shape[-1])
-    y = int(y*img.shape[-2])
-    img[..., bw:bw+s, bw:bw+s] = b
+    img[..., x:x+s, y:y+s] = b
     return bd.array(img[:,0,...])
 
 
@@ -222,7 +221,7 @@ stopwatch = time.time()
 # Train the weights
 for train_step in range(start_step + 1, start_step + args.max_steps):
     # Generate a new image
-    img = toy_img(orig_img, bw)
+    img = toy_img(orig_img)
     # Reset grid and optimizer
     grid.reset()
     optimizer.zero_grad()
