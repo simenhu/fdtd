@@ -1,6 +1,4 @@
 #!/bin/sh 
-#tmux new-session -s 'train' -d 'python learnable_cc.py'
-#tmux new-session -s 'train' -d 'python dummy_learnable.py'
 tmux new-session -s 'train' -d 'python resonate_all.py'
 tmux split-window -v 'watch -n 0.1 nvidia-smi'
 tmux split-window -v 'htop'
