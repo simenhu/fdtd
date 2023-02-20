@@ -64,15 +64,27 @@ writer = SummaryWriter(log_dir=tb_parent_dir + run_dir)
 
 # Setup model saving
 model_parent_dir = './model_checkpoints/'
-model_checkpoint_dir = model_parent_dir + run_dir
+model_checkpoint_dir = model_parent_dir + local_branch + '/'
 path = Path(model_checkpoint_dir)
-path.mkdir(parents=True)
+path.mkdir(parents=True, exist_ok=True)
 #TODO - add functionality to bootstrap models
+# List all model checkpoints
+from os import listdir
+from os.path import isfile, join
+checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
+print('Printing checkpoints: ', checkpoints)
+# Get the latest checkpoint
+checkpoint_steps = np.array([int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints])
+if(len(checkpoint_steps) > 0):
+    latest_idx = np.argmax(checkpoint_steps)
+    latest_checkpoint_path = model_checkpoint_dir + checkpoints[latest_idx]
+    print('Latest: ', latest_checkpoint_path)
 
 
 # ## Set Backend
-backend_name = "torch"
-#backend_name = "torch.cuda.float64"
+#backend_name = "torch"
+#backend_name = "torch.cuda.float32"
+backend_name = "torch.cuda.float64"
 fdtd.set_backend(backend_name)
 if(backend_name.startswith("torch.cuda")):
     device = "cuda"
@@ -145,9 +157,8 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 orig_img = get_sample_img(train_loader)
 orig_img = bd.zeros(orig_img.shape)
 
-def toy_img(img):
-    img = np.array(img)
-    img = np.zeros_like(img)
+def toy_img(img, bw):
+    img = torch.zeros_like(img)
     x, y, b, s = np.random.rand(4)
     #max_size = 25
     #min_size = 8
@@ -158,10 +169,7 @@ def toy_img(img):
     s = int(min_size + s*(max_size - min_size))
     x = int(x*img.shape[-1])
     y = int(y*img.shape[-2])
-    #print(x,y,b)
-    #img[..., x:x+s, y:y+s] = b
-    #img[..., 10:20, 10:20] = b
-    img[..., 10:10+s, 10:10+s] = b
+    img[..., bw:bw+s, bw:bw+s] = b
     return bd.array(img[:,0,...])
 
 
@@ -185,7 +193,8 @@ loss_fn = torch.nn.MSELoss()
 
 em_steps = 200
 max_train_steps = 1000000000000000
-save_interval = 1000
+#save_interval = 1000
+save_interval = 1
 
 grid.H.requires_grad = True
 grid.H.retain_grad()
@@ -198,7 +207,7 @@ stopwatch = time.time()
 # Train the weights
 for train_step in range(max_train_steps):
     # Generate a new image
-    img = toy_img(orig_img)
+    img = toy_img(orig_img, bw)
     # Reset grid and optimizer
     grid.reset()
     optimizer.zero_grad()
