@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# This is a test. We try to learn to represent a SINGLE image in the EM field.
-
 import git
 import sys
 import datetime
@@ -133,8 +131,6 @@ grid[:,   0:bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="ylo
 grid[:, -bw:  , :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="yhigh")
 grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
 
-
-
 # Creat the cortical column sources
 grid[bw:bw+ih,bw:bw+iw,0] = fdtd.CorticalColumnPlaneSource(
     period = WAVELENGTH / SPEED_LIGHT,
@@ -172,9 +168,6 @@ else:
     print('Starting model at step 0')
     start_step = 0
 
-
-
-
 # We only ever get ONE image to train on
 orig_img = get_sample_img(train_loader)
 orig_img = bd.zeros(orig_img.shape)
@@ -192,7 +185,6 @@ def toy_img(img):
     s = int(min_size + s*(max_size - min_size))
     img[..., x:x+s, y:y+s] = b
     return bd.array(img[:,0,...])
-
 
 print('All grid objects: ', [obj.name for obj in grid.objects])
 params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
