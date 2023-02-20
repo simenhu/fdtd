@@ -17,6 +17,14 @@ import torch.optim as optim
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
 from autoencoder import AutoEncoder
+import argparse
+from os import listdir
+from os.path import isfile, join
+
+parser = argparse.ArgumentParser(description='Process args.')
+parser.add_argument('-s', '--load-step', type=str, default='0',
+                    help='Where to start training. If latest, will start at the latest checkpoint.')
+args = parser.parse_args()
 
 #TODO - move this to a util file next cleanup
 def get_sample_img(img_loader, color=True):
@@ -44,9 +52,6 @@ def norm_img_by_chan(img):
     chan_mins, _  = torch.min(img_flat, dim=-1, keepdims=True) 
     chans_dynamic_range = chan_maxes - chan_mins
     normed_img = (img - chan_mins[...,None])/(chans_dynamic_range[...,None])
-    #normed_img_flat = torch.reshape(normed_img, (3, -1))
-    #print('Normed maxes: ', torch.max(normed_img_flat, dim=-1, keepdim=True)[0])
-    #print('Normed mins: ', torch.min(normed_img_flat, dim=-1, keepdim=True)[0])
     return normed_img 
 
 
@@ -67,24 +72,11 @@ model_parent_dir = './model_checkpoints/'
 model_checkpoint_dir = model_parent_dir + local_branch + '/'
 path = Path(model_checkpoint_dir)
 path.mkdir(parents=True, exist_ok=True)
-#TODO - add functionality to bootstrap models
-# List all model checkpoints
-from os import listdir
-from os.path import isfile, join
-checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
-print('Printing checkpoints: ', checkpoints)
-# Get the latest checkpoint
-checkpoint_steps = np.array([int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints])
-if(len(checkpoint_steps) > 0):
-    latest_idx = np.argmax(checkpoint_steps)
-    latest_checkpoint_path = model_checkpoint_dir + checkpoints[latest_idx]
-    print('Latest: ', latest_checkpoint_path)
-
 
 # ## Set Backend
-#backend_name = "torch"
+backend_name = "torch"
 #backend_name = "torch.cuda.float32"
-backend_name = "torch.cuda.float64"
+#backend_name = "torch.cuda.float64"
 fdtd.set_backend(backend_name)
 if(backend_name.startswith("torch.cuda")):
     device = "cuda"
@@ -152,6 +144,35 @@ grid[bw:bw+ih,bw:bw+iw,0] = fdtd.CorticalColumnPlaneSource(
 # Object defining the cortical column substrate 
 grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="cc_substrate")
 
+# List all model checkpoints
+checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
+# Get the latest checkpoint
+model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
+checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
+if(args.load_step == 'latest'):
+    if(len(checkpoint_steps) > 0):
+        latest_idx = np.argmax(checkpoint_steps)
+        start_step = checkpoint_steps[latest_idx]
+        model_dict_path = model_checkpoint_dir + checkpoints[latest_idx]
+        print('Loading model {0}.'.format(model_dict_path))
+        model.load_state_dict(torch.load(model_dict_path))
+    else:
+        start_step = 0
+elif(int(args.load_step) != 0):
+    if(int(args.load_step) not in checkpoint_steps):
+        print('Checkpoint {0} not found in {1}'.format(args.load_step, model_checkpoint_dir))
+        sys.exit()
+    start_step = int(args.load_step)
+    model_idx = np.where(np.array(checkpoint_steps) == start_step)[0][0]
+    model_dict_path = model_checkpoint_dir + checkpoints[model_idx]
+    print('Loading model {0}.'.format(model_dict_path))
+    model.load_state_dict(torch.load(model_dict_path))
+else:
+    print('Starting model at step 0')
+    start_step = 0
+
+
+
 
 # We only ever get ONE image to train on
 orig_img = get_sample_img(train_loader)
@@ -173,10 +194,6 @@ def toy_img(img, bw):
     return bd.array(img[:,0,...])
 
 
-# Make the model
-#model = AutoEncoder(grid=grid, input_img=orig_img, input_chans=3, output_chans=3).to(device)
-model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
-
 print('All grid objects: ', [obj.name for obj in grid.objects])
 params_to_learn = [get_object_by_name(grid, 'xlow').inverse_permittivity]
 params_to_learn = [get_object_by_name(grid, 'xhigh').inverse_permittivity]
@@ -193,8 +210,7 @@ loss_fn = torch.nn.MSELoss()
 
 em_steps = 200
 max_train_steps = 1000000000000000
-#save_interval = 1000
-save_interval = 1
+save_interval = 1000
 
 grid.H.requires_grad = True
 grid.H.retain_grad()
@@ -205,7 +221,7 @@ grid.E.retain_grad()
 stopwatch = time.time()
 
 # Train the weights
-for train_step in range(max_train_steps):
+for train_step in range(start_step + 1, start_step + max_train_steps):
     # Generate a new image
     img = toy_img(orig_img, bw)
     # Reset grid and optimizer
