@@ -56,6 +56,10 @@ def norm_img_by_chan(img):
     normed_img = (img - chan_mins[...,None])/(chans_dynamic_range[...,None])
     return normed_img 
 
+#def rchans(img, axis=1):
+#    '''
+#    Repeats the channel at axis to 
+
 # Setup tensorboard
 tb_parent_dir = './runs/'
 repo = git.Repo(search_parent_directories=True)
@@ -227,17 +231,20 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     num_samples = 1
     # Get sample from training data
     img_hat_em, _, em_field = model(img, em_steps=em_steps, visualize=vis)
-    e_field_img = em_field[:, 0:3,...]
-    h_field_img = em_field[:, 3:6,...]
+    print('em_field', em_field.shape)
+    e_field_img = em_field[0:3,...]
+    h_field_img = em_field[3:6,...]
 
     # Add images to tensorboard
     for s in range(num_samples):
         #img_trip_chan = bd.stack([img, img, img])
         #img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em[s]])
-        img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em])
         #img_grid = torchvision.utils.make_grid([img, img_hat_em])
-            #norm_img_by_chan(e_field_img[s]), 
-            #norm_img_by_chan(h_field_img[s])])
+        print('img_hat_em', img_hat_em.shape)
+        print('e_field_img', e_field_img.shape)
+        img_grid = torchvision.utils.make_grid([img[0,...].repeat(3,1,1), img_hat_em.repeat(3,1,1),
+            norm_img_by_chan(e_field_img), 
+            norm_img_by_chan(h_field_img)])
         writer.add_image('sample_'+str(s), img_grid, train_step)
 
     perm = torch.reshape(get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, 32, 32))
