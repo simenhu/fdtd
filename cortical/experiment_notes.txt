@@ -1,4 +1,5 @@
 # Purpose
 resonate_all.py shows that we can learn a toy image with no jitter pretty easily.
+resonate_img.py shows that we can learn to represent any black and white image pretty easily with several learnable parameters.
 
 # Results
