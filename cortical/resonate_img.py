@@ -231,7 +231,6 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     num_samples = 1
     # Get sample from training data
     img_hat_em, _, em_field = model(img, em_steps=em_steps, visualize=vis)
-    print('em_field', em_field.shape)
     e_field_img = em_field[0:3,...]
     h_field_img = em_field[3:6,...]
 
@@ -240,8 +239,6 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
         #img_trip_chan = bd.stack([img, img, img])
         #img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em[s]])
         #img_grid = torchvision.utils.make_grid([img, img_hat_em])
-        print('img_hat_em', img_hat_em.shape)
-        print('e_field_img', e_field_img.shape)
         img_grid = torchvision.utils.make_grid([img[0,...].repeat(3,1,1), img_hat_em.repeat(3,1,1),
             norm_img_by_chan(e_field_img), 
             norm_img_by_chan(h_field_img)])
