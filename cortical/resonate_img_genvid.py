@@ -23,6 +23,8 @@ from os.path import isfile, join
 parser = argparse.ArgumentParser(description='Process args.')
 parser.add_argument('-l', '--load-step', type=str, default='0',
                     help='Where to start training. If latest, will start at the latest checkpoint.')
+parser.add_argument('-f', '--load-file', type=str, default=None,
+                    help='Path to model checkpoint to load. Overrides --load-step if set.')
 parser.add_argument('-s', '--save-steps', type=int, default='1000',
                     help='How often to save the model.')
 parser.add_argument('-m', '--max-steps', type=int, default='1000000000000000',
@@ -149,7 +151,7 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 # Get the latest checkpoint
-model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
+model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
 checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
 if(args.load_step == 'latest'):
     if(len(checkpoint_steps) > 0):
@@ -209,7 +211,7 @@ grid.H.retain_grad()
 grid.E.requires_grad = True
 grid.E.retain_grad()
 
-img = get_sample_img(train_loader, color=False)
+img = get_sample_img(train_loader, color=True)
 
 # Reset grid and optimizer
 grid.reset()
@@ -221,7 +223,7 @@ for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, v
     e_field_img = em_field[0:3,...]
     h_field_img = em_field[3:6,...]
     # Write to TB
-    img_grid = torchvision.utils.make_grid([img[0,...].repeat(3,1,1), img_hat_em.repeat(3,1,1),
+    img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
         norm_img_by_chan(e_field_img), 
         norm_img_by_chan(h_field_img)])
     writer.add_image('sample', img_grid, em_step)
