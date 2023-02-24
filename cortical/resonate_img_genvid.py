@@ -13,6 +13,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torchvision
+from torchvision.utils import save_image
 from torch.utils.tensorboard import SummaryWriter
 from autoencoder import AutoEncoder
 import argparse
@@ -208,79 +209,22 @@ grid.H.retain_grad()
 grid.E.requires_grad = True
 grid.E.retain_grad()
 
-# For timing steps
-stopwatch = time.time()
+img = get_sample_img(train_loader, color=False)
 
-# Train the weights
-for train_step in range(start_step + 1, start_step + args.max_steps):
-    # Generate a new image
-    #img = toy_img(orig_img)
-    img = get_sample_img(train_loader, color=False)
+# Reset grid and optimizer
+grid.reset()
+optimizer.zero_grad()
 
-    # Reset grid and optimizer
-    grid.reset()
-    optimizer.zero_grad()
-    # Push it through Encoder
-    vis = True
-
-    num_samples = 1
-    # Get sample from training data
-    img_hat_em, _, em_field = model(img, em_steps=em_steps, visualize=vis)
-    print('em_field', em_field.shape)
+# Add images to tensorboard
+for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=True, visualizer_speed=1)):
+    # Process outputs
     e_field_img = em_field[0:3,...]
     h_field_img = em_field[3:6,...]
-
-    # Add images to tensorboard
-    for s in range(num_samples):
-        #img_trip_chan = bd.stack([img, img, img])
-        #img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em[s]])
-        #img_grid = torchvision.utils.make_grid([img, img_hat_em])
-        print('img_hat_em', img_hat_em.shape)
-        print('e_field_img', e_field_img.shape)
-        img_grid = torchvision.utils.make_grid([img[0,...].repeat(3,1,1), img_hat_em.repeat(3,1,1),
-            norm_img_by_chan(e_field_img), 
-            norm_img_by_chan(h_field_img)])
-        writer.add_image('sample_'+str(s), img_grid, train_step)
-
-    perm = torch.reshape(get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, 32, 32))
-    writer.add_image('ccsubstrate1', perm[0:3,...], train_step)
-    writer.add_image('ccsubstrate2', perm[3:6,...], train_step)
-    writer.add_image('ccsubstrate3', perm[6:9,...], train_step)
-
-    # Generate loss
-    loss = loss_fn(img_hat_em, img) 
-
-    writer.add_scalar('Total Loss', loss, train_step)
-    writer.add_scalar('em_steps', em_steps, train_step)
-    writer.add_scalar('ccsubstate_sum', 
-            torch.sum(get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)
-
-    print('Step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
-
-    # Tensorboard
-    writer.add_histogram('cc_dirs', model.cc_dirs, train_step)
-    writer.add_histogram('cc_freqs', model.cc_freqs, train_step)
-    writer.add_histogram('cc_phases', model.cc_phases, train_step)
-    writer.add_histogram('ccsubstrate', get_object_by_name(grid, 'cc_substrate').inverse_permittivity, train_step)
-    writer.add_histogram('xlow', get_object_by_name(grid, 'xlow').inverse_permittivity, train_step)
-    writer.add_histogram('xhigh', get_object_by_name(grid, 'xhigh').inverse_permittivity, train_step)
-    writer.add_histogram('ylow', get_object_by_name(grid, 'ylow').inverse_permittivity, train_step)
-    writer.add_histogram('yhigh', get_object_by_name(grid, 'yhigh').inverse_permittivity, train_step)
-    writer.add_histogram('e_field', e_field_img, train_step)
-    writer.add_histogram('h_field', h_field_img, train_step)
-
-    optimizer.zero_grad()
-    # Backprop
-    loss.backward(retain_graph=True)
-    optimizer.step()
-
-    # Save model 
-    if((train_step % args.save_steps == 0) and (train_step > 0)):
-        torch.save(model.state_dict(), model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.pt')
-
-    # Profile performance
-    seconds_per_step = time.time() - stopwatch 
-    writer.add_scalar('seconds_per_step', torch.tensor(seconds_per_step), train_step)
-    stopwatch = time.time()
+    # Write to TB
+    img_grid = torchvision.utils.make_grid([img[0,...].repeat(3,1,1), img_hat_em.repeat(3,1,1),
+        norm_img_by_chan(e_field_img), 
+        norm_img_by_chan(h_field_img)])
+    writer.add_image('sample', img_grid, em_step)
+    save_image(img_grid, './images/img_{0}.png'.format(str(em_step).zfill(12)))
 
 writer.close()
