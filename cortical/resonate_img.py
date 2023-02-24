@@ -98,7 +98,7 @@ train_loader = torch.utils.data.DataLoader(train_dataset,
                                            shuffle=True)
 
 
-sample = get_sample_img(train_loader)
+sample = get_sample_img(train_loader, color=True)
 print('Image shape: ', sample.shape)
 ih, iw = tuple(sample.shape[2:4])
 
@@ -148,7 +148,7 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 # Get the latest checkpoint
-model = AutoEncoder(grid=grid, input_chans=1, output_chans=1).to(device)
+model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
 checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
 if(args.load_step == 'latest'):
     if(len(checkpoint_steps) > 0):
@@ -215,7 +215,7 @@ stopwatch = time.time()
 for train_step in range(start_step + 1, start_step + args.max_steps):
     # Generate a new image
     #img = toy_img(orig_img)
-    img = get_sample_img(train_loader, color=False)
+    img = get_sample_img(train_loader, color=True)
 
     # Reset grid and optimizer
     grid.reset()
@@ -231,7 +231,6 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     num_samples = 1
     # Get sample from training data
     img_hat_em, _, em_field = model(img, em_steps=em_steps, visualize=vis)
-    print('em_field', em_field.shape)
     e_field_img = em_field[0:3,...]
     h_field_img = em_field[3:6,...]
 
@@ -240,9 +239,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
         #img_trip_chan = bd.stack([img, img, img])
         #img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em[s]])
         #img_grid = torchvision.utils.make_grid([img, img_hat_em])
-        print('img_hat_em', img_hat_em.shape)
-        print('e_field_img', e_field_img.shape)
-        img_grid = torchvision.utils.make_grid([img[0,...].repeat(3,1,1), img_hat_em.repeat(3,1,1),
+        img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
             norm_img_by_chan(e_field_img), 
             norm_img_by_chan(h_field_img)])
         writer.add_image('sample_'+str(s), img_grid, train_step)
