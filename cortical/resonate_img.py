@@ -86,10 +86,10 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((100,100)),
                                torchvision.transforms.ToTensor()])
-train_dataset = torchvision.datasets.CIFAR10('cifar10/', 
-                                           train=True, 
+train_dataset = torchvision.datasets.Flowers102('flowers102/', 
+                                           split='train',
                                            download=True,
                                            transform=image_transform)
 #TODO - turn SHUFFLE back to TRUE for training on multiple images.
