@@ -584,6 +584,8 @@ class CorticalColumnPlaneSource(PlaneSource):
         dirs_zerosum = self.cc_dirs/torch.sum(torch.reshape(self.cc_dirs, (1, self.cc_dirs.shape[1], -1)), axis=-1)[:,:,None,None]
         E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
         img_shape_tp = np.array(list(E_tp[:,0,...].shape)) - np.array((0, 2, 2))
+        # How to calculate the size of a strided conv2d_transpose:
+# https://stackoverflow.com/questions/63687719/filter-size-and-stride-when-upsampling-image-using-conv2d-transpose
         conv_out = torch.conv_transpose2d(bd.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
         # Scale the kernel output by the activations and oscillator.
         #print('Shapes: ', osc[None,:,None,None].shape, conv_out[None,...].shape, self.cc_activations.shape)
