@@ -83,10 +83,10 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((100,100)),
                                torchvision.transforms.ToTensor()])
-train_dataset = torchvision.datasets.CIFAR10('cifar10/', 
-                                           train=True, 
+train_dataset = torchvision.datasets.Flowers102('flowers102/', 
+                                           split='train',
                                            download=True,
                                            transform=image_transform)
 #TODO - turn SHUFFLE back to TRUE for training on multiple images.
@@ -117,6 +117,12 @@ grid = fdtd.Grid(
     permittivity=1.0,
     permeability=1.0,
 )
+
+# Slow down the grid!
+time_scaler = 10
+print('Grid time step: ', grid.time_step)
+grid.time_step = grid.time_step / time_scaler
+print('Grid time step: ', grid.time_step)
 
 # Calculate how long it takes a wave to cross the entire grid.
 grid_diag_cells = math.sqrt(grid_h**2 + grid_w**2)
@@ -180,7 +186,7 @@ optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-0
 mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
 
-em_steps = 200
+em_steps = 200 * time_scaler
 
 grid.H.requires_grad = True
 grid.H.retain_grad()

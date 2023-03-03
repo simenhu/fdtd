@@ -226,15 +226,10 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     # Reset grid and optimizer
     grid.reset()
     optimizer.zero_grad()
-    # Push it through Encoder
-    if((train_step % 500 == 0) and (train_step > 0)):
-        vis = True
-    else:
-        vis = False
 
     num_samples = 1
     # Get sample from training data
-    img_hat_em, _, em_field = model(img, em_steps=em_steps, visualize=vis)
+    img_hat_em, em_field = next(model(img, em_steps=em_steps, visualize=False))
     e_field_img = em_field[0:3,...]
     h_field_img = em_field[3:6,...]
 
