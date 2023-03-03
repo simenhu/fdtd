@@ -577,8 +577,8 @@ class CorticalColumnPlaneSource(PlaneSource):
         if(self.cc_dirs is None):
             print('Error: Cortical Column source must be seeded')
             return -1
-        # Calculate the oscillation.
-        q = self.grid.time_steps_passed
+        # Calculate the oscillation based on the amount of time passed.
+        q = self.grid.time_steps_passed*self.grid.time_step
         osc = torch.sin(2 * pi * q * self.cc_freqs + self.cc_phases)
         # Normalize the kernel so it an only "move" E value, not add/remove any.
         dirs_zerosum = self.cc_dirs/torch.sum(torch.reshape(self.cc_dirs, (1, self.cc_dirs.shape[1], -1)), axis=-1)[:,:,None,None]
