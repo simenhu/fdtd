@@ -21,14 +21,8 @@ from os import listdir
 from os.path import isfile, join
 
 parser = argparse.ArgumentParser(description='Process args.')
-parser.add_argument('-l', '--load-step', type=str, default='0',
-                    help='Where to start training. If latest, will start at the latest checkpoint.')
 parser.add_argument('-f', '--load-file', type=str, default=None,
-                    help='Path to model checkpoint to load. Overrides --load-step if set.')
-parser.add_argument('-s', '--save-steps', type=int, default='1000',
-                    help='How often to save the model.')
-parser.add_argument('-m', '--max-steps', type=int, default='1000000000000000',
-                    help='How many steps to train.')
+                    help='File to load params from before training starts. Overrides --load-step.')
 args = parser.parse_args()
 
 #TODO - move this to a util file next cleanup
@@ -152,28 +146,10 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 # Get the latest checkpoint
 model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
-checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
-if(args.load_step == 'latest'):
-    if(len(checkpoint_steps) > 0):
-        latest_idx = np.argmax(checkpoint_steps)
-        start_step = checkpoint_steps[latest_idx]
-        model_dict_path = model_checkpoint_dir + checkpoints[latest_idx]
-        print('Loading model {0}.'.format(model_dict_path))
-        model.load_state_dict(torch.load(model_dict_path))
-    else:
-        start_step = 0
-elif(int(args.load_step) != 0):
-    if(int(args.load_step) not in checkpoint_steps):
-        print('Checkpoint {0} not found in {1}'.format(args.load_step, model_checkpoint_dir))
-        sys.exit()
-    start_step = int(args.load_step)
-    model_idx = np.where(np.array(checkpoint_steps) == start_step)[0][0]
-    model_dict_path = model_checkpoint_dir + checkpoints[model_idx]
-    print('Loading model {0}.'.format(model_dict_path))
-    model.load_state_dict(torch.load(model_dict_path))
-else:
-    print('Starting model at step 0')
-    start_step = 0
+if(args.load_file is not None):
+    start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
+    print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
+    model.load_state_dict(torch.load(args.load_file))
 
 def toy_img(img):
     img = torch.zeros_like(img)
