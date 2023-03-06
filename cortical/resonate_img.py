@@ -26,6 +26,8 @@ parser.add_argument('-l', '--load-step', type=str, default='0',
                     help='Where to start training. If latest, will start at the latest checkpoint.')
 parser.add_argument('-s', '--save-steps', type=int, default='1000',
                     help='How often to save the model.')
+parser.add_argument('-c', '--coverage-factor', type=float, default=1.0,
+                    help='How much distance a wave can cover as a ratio of the diagonal length of the sim.')
 parser.add_argument('-m', '--max-steps', type=int, default='1000000000000000',
                     help='How many steps to train.')
 parser.add_argument('-d', '--dry-run', type=bool, default=False,
@@ -130,6 +132,8 @@ grid_diag_cells = math.sqrt(grid_h**2 + grid_w**2)
 grid_diag_len = grid_diag_cells * GRID_SPACING
 grid_diag_steps = int(grid_diag_len/SPEED_LIGHT/grid.time_step)+1
 print('Time Steps to Cover Entire Grid: ', grid_diag_steps)
+# The number of steps is based on the coverage ratio.
+em_steps = int(grid_diag_steps*args.coverage_ratio)
 
 
 # Create learnable objects at the boundaries
@@ -216,8 +220,6 @@ if(optimizer_path is not None):
 
 mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
-
-em_steps = 200
 
 grid.H.requires_grad = True
 grid.H.retain_grad()
