@@ -28,6 +28,8 @@ parser.add_argument('-s', '--save-steps', type=int, default='1000',
                     help='How often to save the model.')
 parser.add_argument('-m', '--max-steps', type=int, default='1000000000000000',
                     help='How many steps to train.')
+parser.add_argument('-d', '--dry-run', type=bool, default=False,
+                    help='If true, does not save model checkpoint.')
 args = parser.parse_args()
 
 #TODO - move this to a util file next cleanup
@@ -149,12 +151,14 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
-# Get the latest checkpoint
+# Initialize the model and optimizer with default params.
 model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
+# Load saved params for model and optimizer.
 checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
 if(args.load_file is not None):
     start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
     print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
+    optimizer_path = args.load_file.split('.')[0] + '.opt'
     model.load_state_dict(torch.load(args.load_file))
 else:
     if(args.load_step == 'latest'):
@@ -162,6 +166,7 @@ else:
             latest_idx = np.argmax(checkpoint_steps)
             start_step = checkpoint_steps[latest_idx]
             model_dict_path = model_checkpoint_dir + checkpoints[latest_idx]
+            optimizer_path = model_dict_path.split('.')[0] + '.opt'
             print('Loading model {0}.'.format(model_dict_path))
             model.load_state_dict(torch.load(model_dict_path))
         else:
@@ -173,11 +178,13 @@ else:
         start_step = int(args.load_step)
         model_idx = np.where(np.array(checkpoint_steps) == start_step)[0][0]
         model_dict_path = model_checkpoint_dir + checkpoints[model_idx]
+        optimizer_path = model_dict_path.split('.')[0] + '.opt'
         print('Loading model {0}.'.format(model_dict_path))
         model.load_state_dict(torch.load(model_dict_path))
     else:
         print('Starting model at step 0')
         start_step = 0
+        optimizer_path = None
 
 def toy_img(img):
     img = torch.zeros_like(img)
@@ -203,8 +210,10 @@ params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
 params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
 params_to_learn += [*model.parameters()]
 
-# Optimizer params
 optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
+if(optimizer_path is not None):
+    optimizer.load_state_dict(torch.load(optimizer_path))
+
 mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
 
@@ -273,8 +282,10 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     optimizer.step()
 
     # Save model 
-    if((train_step % args.save_steps == 0) and (train_step > 0)):
-        torch.save(model.state_dict(), model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.pt')
+    if(not args.dry_run):
+        if((train_step % args.save_steps == 0) and (train_step > 0)):
+            torch.save(model.state_dict(), model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.pt')
+            torch.save(optimizer.state_dict(), model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.opt')
 
     # Profile performance
     seconds_per_step = time.time() - stopwatch 
