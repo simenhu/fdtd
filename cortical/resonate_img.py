@@ -26,8 +26,8 @@ parser.add_argument('-l', '--load-step', type=str, default='0',
                     help='Where to start training. If latest, will start at the latest checkpoint.')
 parser.add_argument('-s', '--save-steps', type=int, default='1000',
                     help='How often to save the model.')
-parser.add_argument('-c', '--coverage-factor', type=float, default=1.0,
-                    help='How much distance a wave can cover as a ratio of the diagonal length of the sim.')
+parser.add_argument('-c', '--coverage-ratio', type=float, default=1.0,
+                    help='How much distance a wave can cover as a proportion of the diagonal length of the sim.')
 parser.add_argument('-m', '--max-steps', type=int, default='1000000000000000',
                     help='How many steps to train.')
 parser.add_argument('-d', '--dry-run', type=bool, default=False,
@@ -92,7 +92,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((100,100)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((60,60)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -162,7 +162,7 @@ checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
 if(args.load_file is not None):
     start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
     print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
-    optimizer_path = args.load_file.split('.')[0] + '.opt'
+    optimizer_path = args.load_file.rsplit('.', 1)[0] + '.opt'
     model.load_state_dict(torch.load(args.load_file))
 else:
     if(args.load_step == 'latest'):
@@ -170,8 +170,8 @@ else:
             latest_idx = np.argmax(checkpoint_steps)
             start_step = checkpoint_steps[latest_idx]
             model_dict_path = model_checkpoint_dir + checkpoints[latest_idx]
-            optimizer_path = model_dict_path.split('.')[0] + '.opt'
-            print('Loading model {0}.'.format(model_dict_path))
+            optimizer_path = model_dict_path.rsplit('.', 1)[0] + '.opt'
+            print('Loading model {0} with optimizer {1}.'.format(model_dict_path, optimizer_path))
             model.load_state_dict(torch.load(model_dict_path))
         else:
             start_step = 0
@@ -182,8 +182,8 @@ else:
         start_step = int(args.load_step)
         model_idx = np.where(np.array(checkpoint_steps) == start_step)[0][0]
         model_dict_path = model_checkpoint_dir + checkpoints[model_idx]
-        optimizer_path = model_dict_path.split('.')[0] + '.opt'
-        print('Loading model {0}.'.format(model_dict_path))
+        optimizer_path = model_dict_path.rsplit('.', 1)[0] + '.opt'
+        print('Loading model {0} with optimizer {1}.'.format(model_dict_path, optimizer_path))
         model.load_state_dict(torch.load(model_dict_path))
     else:
         print('Starting model at step 0')
