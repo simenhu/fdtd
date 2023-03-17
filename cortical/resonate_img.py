@@ -155,14 +155,22 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
-# Initialize the model and optimizer with default params.
+# Initialize the model and grid with default params.
 model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
+print('All grid objects: ', [obj.name for obj in grid.objects])
+grid_params_to_learn = []
+grid_params_to_learn += [get_object_by_name(grid, 'xlow').inverse_permittivity]
+grid_params_to_learn += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
+grid_params_to_learn += [get_object_by_name(grid, 'ylow').inverse_permittivity]
+grid_params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
+grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
 # Load saved params for model and optimizer.
 checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
 if(args.load_file is not None):
     start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
     print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
     optimizer_path = args.load_file.rsplit('.', 1)[0] + '.opt'
+    grid_path = args.load_file.rsplit('.', 1)[0] + '.grd'
     model.load_state_dict(torch.load(args.load_file))
 else:
     if(args.load_step == 'latest'):
@@ -171,6 +179,7 @@ else:
             start_step = checkpoint_steps[latest_idx]
             model_dict_path = model_checkpoint_dir + checkpoints[latest_idx]
             optimizer_path = model_dict_path.rsplit('.', 1)[0] + '.opt'
+            grid_path = model_dict_path.rsplit('.', 1)[0] + '.grd'
             print('Loading model {0} with optimizer {1}.'.format(model_dict_path, optimizer_path))
             model.load_state_dict(torch.load(model_dict_path))
         else:
@@ -183,6 +192,7 @@ else:
         model_idx = np.where(np.array(checkpoint_steps) == start_step)[0][0]
         model_dict_path = model_checkpoint_dir + checkpoints[model_idx]
         optimizer_path = model_dict_path.rsplit('.', 1)[0] + '.opt'
+        grid_path = model_dict_path.rsplit('.', 1)[0] + '.grd'
         print('Loading model {0} with optimizer {1}.'.format(model_dict_path, optimizer_path))
         model.load_state_dict(torch.load(model_dict_path))
     else:
@@ -204,16 +214,10 @@ def toy_img(img):
     img[..., x:x+s, y:y+s] = b
     return bd.array(img[:,0,...])
 
-print('All grid objects: ', [obj.name for obj in grid.objects])
-params_to_learn = []
-params_to_learn += [get_object_by_name(grid, 'xlow').inverse_permittivity]
-params_to_learn += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
-params_to_learn += [get_object_by_name(grid, 'ylow').inverse_permittivity]
-params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
-#TODO - disabling substrate learning for now
-params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
-params_to_learn += [*model.parameters()]
+if(grid_path is not None):
+    grid_params_to_learn = torch.load(grid_path)
 
+params_to_learn += [*model.parameters()] + grid_params_to_learn
 optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
 if(optimizer_path is not None):
     optimizer.load_state_dict(torch.load(optimizer_path))
@@ -288,6 +292,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
         if((train_step % args.save_steps == 0) and (train_step > 0)):
             torch.save(model.state_dict(), model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.pt')
             torch.save(optimizer.state_dict(), model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.opt')
+            torch.save(grid_params_to_learn, model_checkpoint_dir + 'md_'+str(train_step).zfill(12)+'.grd')
 
     # Profile performance
     seconds_per_step = time.time() - stopwatch 
