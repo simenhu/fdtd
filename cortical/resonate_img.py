@@ -49,6 +49,10 @@ def get_object_by_name(grid, name):
     for obj in grid.objects:
         if(obj.name == name):
             return obj
+def get_source_by_name(grid, name):
+    for src in grid.sources:
+        if(src.name == name):
+            return src 
 
 def norm_img_by_chan(img):
     '''
@@ -155,6 +159,8 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
+
+torch.autograd.set_detect_anomaly(True)
 # Initialize the model and grid with default params.
 model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
 print('All grid objects: ', [obj.name for obj in grid.objects])
@@ -164,6 +170,9 @@ grid_params_to_learn += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'ylow').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
+# TODO - add the convolution weights to learnable params!
+grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.weight]
+grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.bias]
 # Load saved params for model and optimizer.
 checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
 if(args.load_file is not None):
