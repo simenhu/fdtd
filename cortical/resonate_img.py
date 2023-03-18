@@ -199,6 +199,7 @@ else:
         print('Starting model at step 0')
         start_step = 0
         optimizer_path = None
+        grid_path = None
 
 def toy_img(img):
     img = torch.zeros_like(img)
@@ -215,9 +216,12 @@ def toy_img(img):
     return bd.array(img[:,0,...])
 
 if(grid_path is not None):
-    grid_params_to_learn = torch.load(grid_path)
+    with torch.no_grad():
+        load_grid_params_to_learn = torch.load(grid_path)
+        for idx, tensor in enumerate(load_grid_params_to_learn):
+            grid_params_to_learn[idx][...] = tensor[...]
 
-params_to_learn += [*model.parameters()] + grid_params_to_learn
+params_to_learn = [*model.parameters()] + grid_params_to_learn
 optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
 if(optimizer_path is not None):
     optimizer.load_state_dict(torch.load(optimizer_path))
