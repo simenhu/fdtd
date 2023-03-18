@@ -15,6 +15,7 @@ import torch.optim as optim
 import torchvision
 from torchvision.utils import save_image
 from torch.utils.tensorboard import SummaryWriter
+from  torch.nn.modules.upsampling import Upsample
 from autoencoder import AutoEncoder
 import argparse
 from os import listdir
@@ -83,7 +84,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((100,100)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((60,60)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -152,10 +153,6 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 # Get the latest checkpoint
 model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
-if(args.load_file is not None):
-    start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
-    print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
-    model.load_state_dict(torch.load(args.load_file))
 
 def toy_img(img):
     img = torch.zeros_like(img)
@@ -172,19 +169,21 @@ def toy_img(img):
     return bd.array(img[:,0,...])
 
 print('All grid objects: ', [obj.name for obj in grid.objects])
-params_to_learn = []
-params_to_learn += [get_object_by_name(grid, 'xlow').inverse_permittivity]
-params_to_learn += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
-params_to_learn += [get_object_by_name(grid, 'ylow').inverse_permittivity]
-params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
-#TODO - disabling substrate learning for now
-params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
-params_to_learn += [*model.parameters()]
-
-# Optimizer params
-optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
-mse = torch.nn.MSELoss(reduce=False)
-loss_fn = torch.nn.MSELoss()
+grid_params = []
+grid_params += [get_object_by_name(grid, 'xlow').inverse_permittivity]
+grid_params += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
+grid_params += [get_object_by_name(grid, 'ylow').inverse_permittivity]
+grid_params += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
+grid_params += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
+if(args.load_file is not None):
+    start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
+    print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
+    model.load_state_dict(torch.load(args.load_file))
+    grid_path = args.load_file.rsplit('.', 1)[0] + '.grd'
+    with torch.no_grad():
+        load_grid_params = torch.load(grid_path)
+        for idx, tensor in enumerate(load_grid_params):
+            grid_params[idx][...] = tensor[...]
 
 em_steps = 200 * time_scaler
 
@@ -195,9 +194,9 @@ grid.E.retain_grad()
 
 img = get_sample_img(train_loader, color=True)
 
-# Reset grid and optimizer
 grid.reset()
-optimizer.zero_grad()
+
+upscaler = Upsample(scale_factor=(4,4), mode='linear')
 
 # Add images to tensorboard
 for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=True, visualizer_speed=1)):
@@ -208,6 +207,9 @@ for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, v
     img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
         norm_img_by_chan(e_field_img), 
         norm_img_by_chan(h_field_img)])
+    print('Generating image: ', em_step)
+    img_grid = torchvision.transforms.functional.resize(img_grid, size=(img_grid.shape[1] * 4, img_grid.shape[2] * 4), interpolation=torchvision.transforms.InterpolationMode.NEAREST)
+
     writer.add_image('sample', img_grid, em_step)
     save_image(img_grid, './images/img_{0}.png'.format(str(em_step).zfill(12)))
 
