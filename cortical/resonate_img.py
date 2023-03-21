@@ -229,6 +229,7 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
         for idx, tensor in enumerate(load_grid_params_to_learn):
             grid_params_to_learn[idx][...] = tensor[...]
 
+# Combine grid and model params and register them with the optimizer.
 params_to_learn = [*model.parameters()] + grid_params_to_learn
 optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
 if((optimizer_path is not None) and (not args.reset_grid_optim)):
