@@ -32,6 +32,8 @@ parser.add_argument('-m', '--max-steps', type=int, default='1000000000000000',
                     help='How many steps to train.')
 parser.add_argument('-d', '--dry-run', type=bool, default=False,
                     help='If true, does not save model checkpoint.')
+parser.add_argument('-rog', '--reset-grid-optim', type=bool, default=False,
+                    help='If true, loads completely new params for the grid and optimizer.')
 args = parser.parse_args()
 
 #TODO - move this to a util file next cleanup
@@ -66,10 +68,6 @@ def norm_img_by_chan(img):
     normed_img = (img - chan_mins[...,None])/(chans_dynamic_range[...,None])
     return normed_img 
 
-#def rchans(img, axis=1):
-#    '''
-#    Repeats the channel at axis to 
-
 # Setup tensorboard
 tb_parent_dir = './runs/'
 repo = git.Repo(search_parent_directories=True)
@@ -96,7 +94,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((60,60)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((120,120)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -189,7 +187,7 @@ else:
             model_dict_path = model_checkpoint_dir + checkpoints[latest_idx]
             optimizer_path = model_dict_path.rsplit('.', 1)[0] + '.opt'
             grid_path = model_dict_path.rsplit('.', 1)[0] + '.grd'
-            print('Loading model {0} with optimizer {1}.'.format(model_dict_path, optimizer_path))
+            print('Loading model {0} with optimizer {1} and grid {2}.'.format(model_dict_path, optimizer_path, grid_path))
             model.load_state_dict(torch.load(model_dict_path))
         else:
             start_step = 0
@@ -202,7 +200,7 @@ else:
         model_dict_path = model_checkpoint_dir + checkpoints[model_idx]
         optimizer_path = model_dict_path.rsplit('.', 1)[0] + '.opt'
         grid_path = model_dict_path.rsplit('.', 1)[0] + '.grd'
-        print('Loading model {0} with optimizer {1}.'.format(model_dict_path, optimizer_path))
+        print('Loading model {0} with optimizer {1} and grid {2}.'.format(model_dict_path, optimizer_path, grid_path))
         model.load_state_dict(torch.load(model_dict_path))
     else:
         print('Starting model at step 0')
@@ -224,7 +222,8 @@ def toy_img(img):
     img[..., x:x+s, y:y+s] = b
     return bd.array(img[:,0,...])
 
-if(grid_path is not None):
+if((grid_path is not None) and (not args.reset_grid_optim)):
+    print('Loading grid params...')
     with torch.no_grad():
         load_grid_params_to_learn = torch.load(grid_path)
         for idx, tensor in enumerate(load_grid_params_to_learn):
@@ -232,7 +231,8 @@ if(grid_path is not None):
 
 params_to_learn = [*model.parameters()] + grid_params_to_learn
 optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
-if(optimizer_path is not None):
+if((optimizer_path is not None) and (not args.reset_grid_optim)):
+    print('Loading optimizer params...')
     optimizer.load_state_dict(torch.load(optimizer_path))
 
 mse = torch.nn.MSELoss(reduce=False)
