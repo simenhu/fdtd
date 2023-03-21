@@ -37,10 +37,29 @@ def get_sample_img(img_loader, color=True):
         sample = sample.to(device)[None, None, :]
     return sample
 
+def toy_img(img):
+    img = torch.zeros_like(img)
+    x, y, b, s = np.random.rand(4)
+    max_size = 14
+    min_size =  6
+    max_b = 1.0
+    min_b = 0.5
+    x = int(x*(img.shape[-1] - max_size))
+    y = int(y*(img.shape[-2] - max_size))
+    b = float(min_b + b*(max_b - min_b))
+    s = int(min_size + s*(max_size - min_size))
+    img[..., x:x+s, y:y+s] = b
+    return bd.array(img[:,0,...])
+
+
 def get_object_by_name(grid, name):
     for obj in grid.objects:
         if(obj.name == name):
             return obj
+def get_source_by_name(grid, name):
+    for src in grid.sources:
+        if(src.name == name):
+            return src 
 
 def norm_img_by_chan(img):
     '''
@@ -53,10 +72,6 @@ def norm_img_by_chan(img):
     chans_dynamic_range = chan_maxes - chan_mins
     normed_img = (img - chan_mins[...,None])/(chans_dynamic_range[...,None])
     return normed_img 
-
-#def rchans(img, axis=1):
-#    '''
-#    Repeats the channel at axis to 
 
 # Setup tensorboard
 tb_parent_dir = './runs/'
@@ -84,13 +99,12 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((60,60)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((120,120)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
                                            download=True,
                                            transform=image_transform)
-#TODO - turn SHUFFLE back to TRUE for training on multiple images.
 train_loader = torch.utils.data.DataLoader(train_dataset,
                                            batch_size=1, 
                                            shuffle=True)
@@ -153,53 +167,47 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 # Get the latest checkpoint
 model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
-
-def toy_img(img):
-    img = torch.zeros_like(img)
-    x, y, b, s = np.random.rand(4)
-    max_size = 14
-    min_size =  6
-    max_b = 1.0
-    min_b = 0.5
-    x = int(x*(img.shape[-1] - max_size))
-    y = int(y*(img.shape[-2] - max_size))
-    b = float(min_b + b*(max_b - min_b))
-    s = int(min_size + s*(max_size - min_size))
-    img[..., x:x+s, y:y+s] = b
-    return bd.array(img[:,0,...])
-
-print('All grid objects: ', [obj.name for obj in grid.objects])
-grid_params = []
-grid_params += [get_object_by_name(grid, 'xlow').inverse_permittivity]
-grid_params += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
-grid_params += [get_object_by_name(grid, 'ylow').inverse_permittivity]
-grid_params += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
-grid_params += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
 if(args.load_file is not None):
     start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
     print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
-    model.load_state_dict(torch.load(args.load_file))
     grid_path = args.load_file.rsplit('.', 1)[0] + '.grd'
+    model.load_state_dict(torch.load(args.load_file))
+else:
+    print('No model provided, exiting...')
+    sys.exit()
+
+print('All grid objects: ', [obj.name for obj in grid.objects])
+grid_params_to_learn = []
+grid_params_to_learn += [get_object_by_name(grid, 'xlow').inverse_permittivity]
+grid_params_to_learn += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
+grid_params_to_learn += [get_object_by_name(grid, 'ylow').inverse_permittivity]
+grid_params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
+grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
+grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.weight]
+grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.bias]
+
+# Load the grid params from file.
+if(grid_path is not None):
+    print('Loading grid params...')
     with torch.no_grad():
-        load_grid_params = torch.load(grid_path)
-        for idx, tensor in enumerate(load_grid_params):
-            grid_params[idx][...] = tensor[...]
+        load_grid_params_to_learn = torch.load(grid_path)
+        for idx, tensor in enumerate(load_grid_params_to_learn):
+            grid_params_to_learn[idx][...] = tensor[...]
+
+# Optimizer params
+mse = torch.nn.MSELoss(reduce=False)
+loss_fn = torch.nn.MSELoss()
 
 em_steps = 200 * time_scaler
 
-grid.H.requires_grad = True
-grid.H.retain_grad()
-grid.E.requires_grad = True
-grid.E.retain_grad()
-
 img = get_sample_img(train_loader, color=True)
 
+# Reset grid
 grid.reset()
-
-upscaler = Upsample(scale_factor=(4,4), mode='linear')
 
 # Add images to tensorboard
 for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=True, visualizer_speed=1)):
+    print('Generating image from em step {0}'.format(em_step))
     # Process outputs
     e_field_img = em_field[0:3,...]
     h_field_img = em_field[3:6,...]
