@@ -554,6 +554,8 @@ class CorticalColumnPlaneSource(PlaneSource):
         # Number of cortical columns to use
         self.num_ccs = num_cortical_columns
         self.cc_dirs = None
+        # Takes the field energies (E and  H) as input and outputs modifiers for each cc.
+        self.nonlin_conv = torch.nn.Conv2d( 2, self.num_ccs, kernel_size=1, stride=1, padding='same')
 
     def seed(self, cc_activations, cc_dirs, cc_freqs, cc_phases):
         '''
@@ -577,6 +579,15 @@ class CorticalColumnPlaneSource(PlaneSource):
         if(self.cc_dirs is None):
             print('Error: Cortical Column source must be seeded')
             return -1
+
+        # Calculate energy of E and H fields.
+        with torch.no_grad():
+            grid_energy_E = bd.sum(self.grid.E ** 2, -1)
+            grid_energy_H = bd.sum(self.grid.H ** 2, -1)
+            grid_energy = torch.stack([grid_energy_E, grid_energy_H], dim=0)
+            grid_energy = torch.permute(grid_energy, (3, 0, 1, 2))
+        nonlin_modifier = torch.sigmoid(self.nonlin_conv(grid_energy))
+
         # Calculate the oscillation based on the amount of time passed.
         q = self.grid.time_steps_passed*self.grid.time_step
         osc = torch.sin(2 * pi * q * self.cc_freqs + self.cc_phases)
@@ -585,18 +596,13 @@ class CorticalColumnPlaneSource(PlaneSource):
         E_tp = torch.permute(self.grid.E[self.x, self.y, :, ...], (2,3,0,1))
         img_shape_tp = np.array(list(E_tp[:,0,...].shape)) - np.array((0, 2, 2))
         conv_out = torch.conv_transpose2d(bd.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
-        # Scale the kernel output by the activations and oscillator.
-        #print('Shapes: ', osc[None,:,None,None].shape, conv_out[None,...].shape, self.cc_activations.shape)
-        conv_out_scaled = osc[None,:,None,None]*conv_out[None,...]*self.cc_activations
+        # Scale the kernel output by the activations,  oscillator, and non-linearities.
+        conv_out_scaled = osc[None,:,None,None]*conv_out[None,...]*self.cc_activations*nonlin_modifier[..., self.x, self.y]
         # Sum over the CC dimension to calc the final perturbation.
         conv_out_scaled = torch.sum(conv_out_scaled, axis=1)
         # Add perturbation to grid on the Z axis.
         self.grid.E[self.x, self.y, :, -1] += torch.permute(conv_out_scaled, (1,2,0))
-        #self.grid.E[20, 20, 0, -1] += torch.permute(conv_out_scaled, (1,2,0))[20, 20, 0]
-        #self.grid.E[20, 20, 0, -1] += torch.permute(conv_out_scaled, (1,2,0))[20, 20, 0]
-        #osc = 100000*np.sin(2 * pi * q * (1550e-2/299_792_458.0))
-        #osc = 100000*np.sin(2 * pi * q * (1550e-2/299_792_458.0))
-        #self.grid.E[25, 25, 0, 2] += osc
+
 
 
 class SoftArbitraryPointSource:
