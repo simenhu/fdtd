@@ -557,7 +557,7 @@ class CorticalColumnPlaneSource(PlaneSource):
         # Takes the field energies (E and  H) as input and outputs modifiers for each cc.
         self.nonlin_conv = torch.nn.Conv2d( 2, self.num_ccs, kernel_size=1, stride=1, padding='same')
 
-    def seed(self, cc_activations, cc_dirs, cc_freqs, cc_phases):
+    def seed(self, cc_activations, cc_dirs, cc_freqs, cc_phases, amp_scaler):
         '''
         cc_activations: (num_ccs, H, W)
         cc_seeds should be of the form: (num_ccs, 2) where 3 is:
@@ -569,6 +569,7 @@ class CorticalColumnPlaneSource(PlaneSource):
         self.cc_dirs = cc_dirs
         self.cc_freqs  = cc_freqs
         self.cc_phases = cc_phases
+        self.amp_scaler = amp_scaler
 
     def update_H(self):
         """Add the source to the magnetic field"""
@@ -597,7 +598,8 @@ class CorticalColumnPlaneSource(PlaneSource):
         img_shape_tp = np.array(list(E_tp[:,0,...].shape)) - np.array((0, 2, 2))
         conv_out = torch.conv_transpose2d(bd.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
         # Scale the kernel output by the activations,  oscillator, and non-linearities.
-        conv_out_scaled = osc[None,:,None,None]*conv_out[None,...]*self.cc_activations*nonlin_modifier[..., self.x, self.y]
+        conv_out_scaled = osc[None,:,None,None] * conv_out[None,...] * self.cc_activations * nonlin_modifier[..., self.x, self.y] * self.amp_scaler
+        print(self.amp_scaler)
         # Sum over the CC dimension to calc the final perturbation.
         conv_out_scaled = torch.sum(conv_out_scaled, axis=1)
         # Add perturbation to grid on the Z axis.

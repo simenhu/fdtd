@@ -81,7 +81,7 @@ sha = repo.head.object.hexsha
 local_branch = repo.active_branch.name
 run_dir = local_branch + '/' + sha[-3:] + '/' +  datetime.datetime.now().isoformat(timespec='seconds') + '/'
 print('TB Log Directory is: ', tb_parent_dir + run_dir)
-writer = SummaryWriter(log_dir=tb_parent_dir + run_dir)
+#writer = SummaryWriter(log_dir=tb_parent_dir + run_dir)
 
 # Setup model saving
 model_parent_dir = './model_checkpoints/'
@@ -99,7 +99,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((120,120)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((210,210)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -134,7 +134,7 @@ grid = fdtd.Grid(
 )
 
 # Slow down the grid!
-time_scaler = 10
+time_scaler = 1
 print('Grid time step: ', grid.time_step)
 grid.time_step = grid.time_step / time_scaler
 print('Grid time step: ', grid.time_step)
@@ -202,23 +202,26 @@ em_steps = 200 * time_scaler
 
 img = get_sample_img(train_loader, color=True)
 
-# Reset grid
-grid.reset()
+powers = np.exp(np.linspace(0.1, 3.0, 12)) - 1.0
 
 # Add images to tensorboard
-for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=True, visualizer_speed=1)):
-    print('Generating image from em step {0}'.format(em_step))
-    # Process outputs
-    e_field_img = em_field[0:3,...]
-    h_field_img = em_field[3:6,...]
-    # Write to TB
-    img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
-        norm_img_by_chan(e_field_img), 
-        norm_img_by_chan(h_field_img)])
-    print('Generating image: ', em_step)
-    img_grid = torchvision.transforms.functional.resize(img_grid, size=(img_grid.shape[1] * 4, img_grid.shape[2] * 4), interpolation=torchvision.transforms.InterpolationMode.NEAREST)
+for power in powers:
+    # Reset grid
+    grid.reset()
 
-    writer.add_image('sample', img_grid, em_step)
-    save_image(img_grid, './images/img_{0}.png'.format(str(em_step).zfill(12)))
+    for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=True, visualizer_speed=1, amp_scaler=power)):
+        print('Generating image for power {0} and em step {1}'.format(power, em_step))
+        # Process outputs
+        e_field_img = em_field[0:3,...]
+        h_field_img = em_field[3:6,...]
+        # Write to TB
+        img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
+            norm_img_by_chan(e_field_img), 
+            norm_img_by_chan(h_field_img)])
+        print('Generating image: ', em_step)
+        #img_grid = torchvision.transforms.functional.resize(img_grid, size=(img_grid.shape[1] * 4, img_grid.shape[2] * 4), interpolation=torchvision.transforms.InterpolationMode.NEAREST)
 
-writer.close()
+        #writer.add_image('sample', img_grid, em_step)
+        save_image(img_grid, './images/img_p{0}_idx{1}.png'.format('{0:06.3f}'.format(power), str(em_step).zfill(12)))
+
+#writer.close()

@@ -78,7 +78,7 @@ class AutoEncoder(nn.Module):
         em_plane = torch.permute(torch.squeeze(em_plane), (2,0,1))
         return em_plane
 
-    def forward(self, x, em_steps, visualize=False, visualizer_speed=5):
+    def forward(self, x, em_steps, visualize=False, visualizer_speed=5, amp_scaler=1.0):
         ## 1 - Extract features
         # Convert image into amplitude, frequency, and phase shift for our CCs.
         x = self.conv1(x)
@@ -97,7 +97,7 @@ class AutoEncoder(nn.Module):
         cc_activations = x
 
         ## 2 - Seed the cc grid source
-        self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases)
+        self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases, amp_scaler)
 
         # 3 - Run the grid and generate output
         if(visualize):
