@@ -2,3 +2,4 @@ model_checkpoints/*
 cifar10/*
 bootstrap/*
 runs/*
+flowers102/*
