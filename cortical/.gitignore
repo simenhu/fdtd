@@ -1,5 +1,7 @@
 model_checkpoints/*
+model_backups/*
 cifar10/*
 bootstrap/*
 runs/*
 flowers102/*
+images*/*
