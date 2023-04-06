@@ -51,10 +51,16 @@ def get_object_by_name(grid, name):
     for obj in grid.objects:
         if(obj.name == name):
             return obj
+    else:
+        print('Could not find object: ', name)
+        sys.exit()
 def get_source_by_name(grid, name):
     for src in grid.sources:
         if(src.name == name):
             return src 
+    else:
+        print('Could not find object: ', name)
+        sys.exit()
 
 def norm_img_by_chan(img):
     '''
@@ -94,7 +100,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((120,120)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((100,100)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -153,8 +159,7 @@ grid[bw:bw+ih,bw:bw+iw,0] = fdtd.CorticalColumnPlaneSource(
 )
 
 # Object defining the cortical column substrate 
-grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="cc_substrate")
-
+grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, is_substrate=True, name="cc_substrate")
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 
@@ -168,7 +173,10 @@ grid_params_to_learn += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'ylow').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
-# TODO - add the convolution weights to learnable params!
+# Nonlinearity weights for the substrate. 
+grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').nonlin_conv.weight]
+grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').nonlin_conv.bias]
+# Nonlinearity weights for the cortical columns. 
 grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.weight]
 grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.bias]
 # Load saved params for model and optimizer.
@@ -288,7 +296,11 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     writer.add_histogram('cc_dirs', model.cc_dirs, train_step)
     writer.add_histogram('cc_freqs', model.cc_freqs, train_step)
     writer.add_histogram('cc_phases', model.cc_phases, train_step)
+    writer.add_histogram('cc_nonlin_w', get_source_by_name(grid, 'cc').nonlin_conv.weight, train_step)
+    writer.add_histogram('cc_nonlin_b', get_source_by_name(grid, 'cc').nonlin_conv.bias, train_step)
     writer.add_histogram('ccsubstrate', get_object_by_name(grid, 'cc_substrate').inverse_permittivity, train_step)
+    writer.add_histogram('ccsubstrate_nonlin_w', get_object_by_name(grid, 'cc_substrate').nonlin_conv.weight, train_step)
+    writer.add_histogram('ccsubstrate_nonlin_b', get_object_by_name(grid, 'cc_substrate').nonlin_conv.bias, train_step)
     writer.add_histogram('xlow', get_object_by_name(grid, 'xlow').inverse_permittivity, train_step)
     writer.add_histogram('xhigh', get_object_by_name(grid, 'xhigh').inverse_permittivity, train_step)
     writer.add_histogram('ylow', get_object_by_name(grid, 'ylow').inverse_permittivity, train_step)

@@ -6,7 +6,7 @@ __version__ = "0.2.5"
 from .grid import Grid
 from .sources import PointSource, CorticalColumnPointSource, LineSource, PlaneSource, CorticalColumnPlaneSource
 from .detectors import LineDetector, BlockDetector, CurrentDetector
-from .objects import Object, AbsorbingObject, AnisotropicObject, NonLinearObject, LearnableAnisotropicObject 
+from .objects import Object, AbsorbingObject, AnisotropicObject, LearnableAnisotropicObject 
 from .boundaries import PeriodicBoundary, PML
 from .backend import backend
 from .backend import set_backend

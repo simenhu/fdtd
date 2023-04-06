@@ -599,7 +599,6 @@ class CorticalColumnPlaneSource(PlaneSource):
         conv_out = torch.conv_transpose2d(bd.ones(tuple(img_shape_tp)), dirs_zerosum, bias=None, stride=1)
         # Scale the kernel output by the activations,  oscillator, and non-linearities.
         conv_out_scaled = osc[None,:,None,None] * conv_out[None,...] * self.cc_activations * nonlin_modifier[..., self.x, self.y] * self.amp_scaler
-        print(self.amp_scaler)
         # Sum over the CC dimension to calc the final perturbation.
         conv_out_scaled = torch.sum(conv_out_scaled, axis=1)
         # Add perturbation to grid on the Z axis.

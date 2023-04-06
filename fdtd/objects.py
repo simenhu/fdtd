@@ -19,6 +19,7 @@ from .grid import Grid
 from .backend import backend as bd
 from . import constants as const
 import numpy as np
+import torch
 
 
 ## Object
@@ -271,66 +272,23 @@ class AnisotropicObject(Object):
 
         """
 
-class NonLinearObject(Object):
-    """ An object with non-linear permittivity """
-
-    def _register_grid(
-        self, grid: Grid, x: slice = None, y: slice = None, z: slice = None
-    ):
-        """Register a grid to the object
-
-        Args:
-            grid: the grid to register the object into
-            x: the x-location of the object in the grid
-            y: the y-location of the object in the grid
-            z: the z-location of the object in the grid
-        """
-        super()._register_grid(grid=grid, x=x, y=y, z=z)
-        print('Creating nonlinear object.')
-
-    def update_E(self, curl_H):
-        """custom update equations for inside the anisotropic object
-
-        Args:
-            curl_H: the curl of magnetic field in the grid.
-
-        """
-        loc = (self.x, self.y, self.z)
-        grid_energy = bd.sum(self.grid.E[loc] ** 2 + self.grid.H[loc] ** 2, -1)
-        #print(np.max(grid_energy[loc]))
-        #print(self.inverse_permittivity.shape)
-        # * grid_energy[loc][...,np.newaxis]
-        lower_lim = 0.02
-        mask = grid_energy > lower_lim
-        #modifier = mask*(1.0 + 100*(grid_energy - lower_lim)) + (1-mask)
-        modifier = mask*(0.1) + (1-mask)
-        print(np.max(grid_energy))
-        print(np.max(modifier))
-        self.grid.E[loc] += (
-            self.grid.courant_number * self.inverse_permittivity * curl_H[loc] * modifier[...,np.newaxis]
-        )
-
-    def update_H(self, curl_E):
-        """custom update equations for inside the anisotropic object
-
-        Args:
-            curl_E: the curl of electric field in the grid.
-
-        """
-
 class LearnableAnisotropicObject(Object):
     """ An object with anisotropic permittivity tensor """
 
     def __init__(
-        self, permittivity: Tensorlike, name: str = None
+        self, permittivity: Tensorlike, is_substrate=False, name: str = None
     ):
         """
         Args:
             permittivity: permittivity tensor
             conductivity: conductivity tensor (will introduce the loss)
+            is_substrate: whether or not nonlinearity will be enabled.
             name: name of the object (will become available as attribute to the grid)
         """
         super().__init__(permittivity, name)
+        # Takes the field energies (E and  H) as input and outputs modifiers for the permitivity.
+        self.nonlin_conv = torch.nn.Conv2d( 2, 3*3, kernel_size=1, stride=1, padding='same')
+        self.is_substrate = is_substrate
 
     def _register_grid(
         self, grid: Grid, x: slice = None, y: slice = None, z: slice = None
@@ -361,23 +319,24 @@ class LearnableAnisotropicObject(Object):
 
         """
         loc = (self.x, self.y, self.z)
-        # z = bd.zeros(self.grid.shape + (3,))
-        # z[loc] = 1.0
+        # Nonlinear modifier calculation:
+        # Calculate energy of E and H fields.
+        if(self.is_substrate):
+            with torch.no_grad():
+                grid_energy_E = bd.sum(self.grid.E ** 2, -1)
+                grid_energy_H = bd.sum(self.grid.H ** 2, -1)
+                grid_energy = torch.stack([grid_energy_E, grid_energy_H], dim=0)
+                grid_energy = torch.permute(grid_energy, (3, 0, 1, 2))
+            nonlin_modifier = torch.sigmoid(self.nonlin_conv(grid_energy))
+            s = (1, 3, 3) + tuple(nonlin_modifier.shape[-2:])
+            nonlin_modifier = torch.reshape(nonlin_modifier, s)[..., self.Nx, self.Ny]
+        else:
+            nonlin_modifier = torch.Tensor([1.0])
 
-        # temp = bd.reshape(
-        #     self.grid.courant_number
-        #     * bd.bmm(
-        #         bd.reshape(self.inverse_permittivity, (-1, 3, 3)),
-        #         bd.reshape(curl_H[loc], (-1, 3, 1)),
-        #     ),
-        #     (self.Nx, self.Ny, self.Nz, 3),
-        # )
-        # z[loc] = temp
-        # self.grid.E = self.grid.E + z
         self.grid.E[loc] += bd.reshape(
             self.grid.courant_number
             * bd.bmm(
-                bd.reshape(self.inverse_permittivity, (-1, 3, 3)),
+                bd.reshape(self.inverse_permittivity * nonlin_modifier, (-1, 3, 3)),
                 bd.reshape(curl_H[loc], (-1, 3, 1)),
             ),
             (self.Nx, self.Ny, self.Nz, 3),
