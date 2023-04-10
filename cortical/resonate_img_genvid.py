@@ -99,7 +99,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((210,210)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((60,60)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -183,6 +183,10 @@ grid_params_to_learn += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'ylow').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
 grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
+# Nonlinearity weights for the substrate. 
+grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').nonlin_conv.weight]
+grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').nonlin_conv.bias]
+# Nonlinearity weights for the cortical columns. 
 grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.weight]
 grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.bias]
 
