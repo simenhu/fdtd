@@ -100,7 +100,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((60,60)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((30,30)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -165,7 +165,7 @@ checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_che
 
 torch.autograd.set_detect_anomaly(True)
 # Initialize the model and grid with default params.
-model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
+model = AutoEncoder(num_em_steps=em_steps, grid=grid, input_chans=3, output_chans=3).to(device)
 print('All grid objects: ', [obj.name for obj in grid.objects])
 grid_params_to_learn = []
 grid_params_to_learn += [get_object_by_name(grid, 'xlow').inverse_permittivity]
@@ -264,28 +264,33 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     grid.reset()
     optimizer.zero_grad()
 
-    num_samples = 1
+    loss_list = []
     # Get sample from training data
-    img_hat_em, em_field = next(model(img, em_steps=em_steps, visualize=False))
-    e_field_img = em_field[0:3,...]
-    h_field_img = em_field[3:6,...]
+    em_step_loss_weights = model.get_step_loss_weighting()
+    for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=False)):
+        loss_list += [loss_fn(img_hat_em, img)]
+        if(em_step == torch.argmax(em_step_loss_weights)):
+            e_field_img = em_field[0:3,...]
+            h_field_img = em_field[3:6,...]
+            img_hat_em_save = img_hat_em
+    loss_list = torch.stack(loss_list)
+    loss = torch.sum(loss_list * em_step_loss_weights)
 
-    # Add images to tensorboard
-    for s in range(num_samples):
-        img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
-            norm_img_by_chan(e_field_img), 
-            norm_img_by_chan(h_field_img)])
-        writer.add_image('sample_'+str(s), img_grid, train_step)
+    # Add the argmaxxed images to tensorboard
+    img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em_save,
+        norm_img_by_chan(e_field_img), 
+        norm_img_by_chan(h_field_img)])
+    writer.add_image('sample', img_grid, train_step)
 
     perm = torch.reshape(get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, iw, ih))
     writer.add_image('ccsubstrate1', perm[0:3,...], train_step)
     writer.add_image('ccsubstrate2', perm[3:6,...], train_step)
     writer.add_image('ccsubstrate3', perm[6:9,...], train_step)
 
-    # Generate loss
-    loss = loss_fn(img_hat_em, img) 
 
     writer.add_scalar('Total Loss', loss, train_step)
+    writer.add_histogram('Loss List', loss_list, train_step)
+    writer.add_histogram('Loss EM Step Weights', model.loss_step_weights, train_step)
     writer.add_scalar('em_steps', em_steps, train_step)
     writer.add_scalar('ccsubstate_sum', 
             torch.sum(get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)

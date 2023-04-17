@@ -40,7 +40,7 @@ def format_imgs(data, output, rows=3):
 
 ## Then define the model class
 class AutoEncoder(nn.Module):
-    def __init__(self, grid, input_chans=3, num_ccs=16, output_chans=3, wavelen_mean=1550e-3, freq_std_div=10):
+    def __init__(self, grid, num_em_steps, input_chans=3, num_ccs=16, output_chans=3, wavelen_mean=1550e-3, freq_std_div=10):
         super(AutoEncoder, self).__init__()
         self.em_grid = grid
         ic = input_chans
@@ -64,12 +64,20 @@ class AutoEncoder(nn.Module):
         # They must sum to zero and we just add them to the E field, no multiplication necessary
         #TODO - make sure these dir kernels make sense (check the sum)
         self.cc_dirs = torch.nn.Parameter(2*torch.rand((1, cc, 3, 3)) - 1)
+        #TODO - remove this dumb line?
         self.cc_dirs = self.cc_dirs
+        # The weights for the reconstruction loss at each em time step. 
+        self.loss_step_weights = torch.nn.Parameter(torch.ones(num_em_steps)/num_em_steps)
+        self.softmax = torch.nn.Softmax(dim=0)
 
         means = 1.0/wavelen_mean*torch.ones(num_ccs)
         stds = (means/freq_std_div)*torch.ones(num_ccs)
         self.cc_freqs  = torch.nn.Parameter(torch.normal(mean=means, std=stds))
         self.cc_phases = torch.nn.Parameter(torch.rand((num_ccs)))
+
+    def get_step_loss_weighting(self):
+        ' Calculates the weights for the reconstruction losses at every time step. '
+        return self.softmax(self.loss_step_weights)
 
     def get_em_plane(self):
         ' Extracts a slice along the image plane from the EM field. '
@@ -112,7 +120,8 @@ class AutoEncoder(nn.Module):
                 x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
                 yield x_hat_em, em_plane
         else:
-            self.em_grid.run(em_steps , progress_bar=False)
-            em_plane = self.get_em_plane()
-            x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
-            yield x_hat_em, em_plane
+            for em_step in range(em_steps):
+                self.em_grid.run(1 , progress_bar=False)
+                em_plane = self.get_em_plane()
+                x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
+                yield x_hat_em, em_plane
