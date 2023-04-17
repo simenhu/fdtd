@@ -267,9 +267,10 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     loss_list = []
     # Get sample from training data
     em_step_loss_weights = model.get_step_loss_weighting()
+    argmax_step = torch.argmax(em_step_loss_weights)
     for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=False)):
         loss_list += [loss_fn(img_hat_em, img)]
-        if(em_step == torch.argmax(em_step_loss_weights)):
+        if(em_step == argmax_step):
             e_field_img = em_field[0:3,...]
             h_field_img = em_field[3:6,...]
             img_hat_em_save = img_hat_em
@@ -294,6 +295,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     writer.add_scalar('em_steps', em_steps, train_step)
     writer.add_scalar('ccsubstate_sum', 
             torch.sum(get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)
+    writer.add_scalar('Argmax EM Step', argmax_step, train_step)
 
     print('Step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
 
