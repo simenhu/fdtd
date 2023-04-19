@@ -100,7 +100,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((30,30)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((120,120)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -274,8 +274,9 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
             e_field_img = em_field[0:3,...]
             h_field_img = em_field[3:6,...]
             img_hat_em_save = img_hat_em
-    loss_list = torch.stack(loss_list)
-    loss = torch.sum(loss_list * em_step_loss_weights)
+    loss_per_step = torch.stack(loss_list)
+    weighted_loss_per_step = loss_per_step * em_step_loss_weights
+    loss = torch.sum(weighted_loss_per_step)
 
     # Add the argmaxxed images to tensorboard
     img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em_save,
@@ -290,7 +291,8 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
 
 
     writer.add_scalar('Total Loss', loss, train_step)
-    writer.add_histogram('Loss List', loss_list, train_step)
+    writer.add_histogram('Loss Per Step', loss_per_step, train_step)
+    writer.add_histogram('Weighted Loss Per Step', weighted_loss_per_step, train_step)
     writer.add_histogram('Loss EM Step Weights', model.loss_step_weights, train_step)
     writer.add_scalar('em_steps', em_steps, train_step)
     writer.add_scalar('ccsubstate_sum', 
