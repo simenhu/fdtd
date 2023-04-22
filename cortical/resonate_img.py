@@ -268,7 +268,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     # Get sample from training data
     em_step_loss_weights = model.get_step_loss_weighting()
     argmax_step = torch.argmax(em_step_loss_weights)
-    for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=False)):
+    for em_step, (img_hat_em, em_field) in enumerate(model(img)):
         loss_list += [loss_fn(img_hat_em, img)]
         if(em_step == argmax_step):
             e_field_img = em_field[0:3,...]

@@ -43,6 +43,7 @@ class AutoEncoder(nn.Module):
     def __init__(self, grid, num_em_steps, input_chans=3, num_ccs=16, output_chans=3, wavelen_mean=1550e-3, freq_std_div=10):
         super(AutoEncoder, self).__init__()
         self.em_grid = grid
+        self.num_em_steps = num_em_steps
         ic = input_chans
         cc = num_ccs
         oc = output_chans
@@ -67,7 +68,7 @@ class AutoEncoder(nn.Module):
         #TODO - remove this dumb line?
         self.cc_dirs = self.cc_dirs
         # The weights for the reconstruction loss at each em time step. 
-        self.loss_step_weights = torch.nn.Parameter(torch.ones(num_em_steps)/num_em_steps)
+        self.loss_step_weights = torch.nn.Parameter(torch.ones(self.num_em_steps)/self.num_em_steps)
         self.softmax = torch.nn.Softmax(dim=0)
 
         means = 1.0/wavelen_mean*torch.ones(num_ccs)
@@ -86,7 +87,7 @@ class AutoEncoder(nn.Module):
         em_plane = torch.permute(torch.squeeze(em_plane), (2,0,1))
         return em_plane
 
-    def forward(self, x, em_steps, visualize=False, visualizer_speed=5, amp_scaler=1.0):
+    def forward(self, x, em_steps=None, amp_scaler=1.0):
         ## 1 - Extract features
         # Convert image into amplitude, frequency, and phase shift for our CCs.
         x = self.conv1(x)
@@ -108,20 +109,11 @@ class AutoEncoder(nn.Module):
         self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases, amp_scaler)
 
         # 3 - Run the grid and generate output
-        if(visualize):
-            num_iters = em_steps//visualizer_speed + 1
-            rem_steps = em_steps %visualizer_speed
-            for i in range(num_iters):
-                if(i < num_iters-1):
-                    self.em_grid.run(visualizer_speed, progress_bar=False)
-                else:
-                    self.em_grid.run(rem_steps, progress_bar=False)
-                em_plane = self.get_em_plane()
-                x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
-                yield x_hat_em, em_plane
-        else:
-            for em_step in range(em_steps):
-                self.em_grid.run(1 , progress_bar=False)
-                em_plane = self.get_em_plane()
-                x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
-                yield x_hat_em, em_plane
+        if(em_steps is None or em_steps == 0):
+            em_steps = self.num_em_steps
+
+        for em_step in range(em_steps):
+            self.em_grid.run(1 , progress_bar=False)
+            em_plane = self.get_em_plane()
+            x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
+            yield x_hat_em, em_plane

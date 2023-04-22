@@ -99,7 +99,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((60,60)),
+image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((120,120)),
                                torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
@@ -166,7 +166,7 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 # Get the latest checkpoint
-model = AutoEncoder(grid=grid, input_chans=3, output_chans=3).to(device)
+model = AutoEncoder(grid=grid, num_em_steps=283, input_chans=3, output_chans=3).to(device)
 if(args.load_file is not None):
     start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
     print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
@@ -202,7 +202,7 @@ if(grid_path is not None):
 mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
 
-em_steps = 200 * time_scaler
+em_steps = model.num_em_steps
 
 img = get_sample_img(train_loader, color=True)
 
@@ -213,7 +213,7 @@ for power in powers:
     # Reset grid
     grid.reset()
 
-    for em_step, (img_hat_em, em_field) in enumerate(model(img, em_steps=em_steps, visualize=True, visualizer_speed=1, amp_scaler=power)):
+    for em_step, (img_hat_em, em_field) in enumerate(model(img, amp_scaler=power)):
         print('Generating image for power {0} and em step {1}'.format(power, em_step))
         # Process outputs
         e_field_img = em_field[0:3,...]

@@ -177,7 +177,17 @@ if(grid_path is not None):
             try:
                 grid_params_to_learn[idx][...] = tensor[...]
             except:
-                print('COULD NOT LOAD PARAM: ', idx)
+                print('COULD NOT LOAD PARAM: ', idx, ' AS IS. RESIZING.')
+                resizer = torchvision.transforms.Resize(tuple(grid_params_to_learn[idx].shape[0:2]), interpolation=torchvision.transforms.InterpolationMode.BILINEAR)
+                print('1: ', tensor.shape)
+                tensor_tp = torch.permute(tensor[...], (2,3,4,0,1))
+                print('2: ', tensor_tp.shape)
+                tensor_tp = resizer(tensor_tp)
+                print('3: ', tensor_tp.shape)
+                tensor_tp = torch.permute(tensor_tp[...], (3,4,0,1,2))
+                print('4: ', tensor_tp.shape)
+                grid_params_to_learn[idx][...] = tensor_tp
+                print('5: ', grid_params_to_learn[idx].shape)
 
 # Optimizer params
 mse = torch.nn.MSELoss(reduce=False)

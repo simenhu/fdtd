@@ -207,6 +207,6 @@ for img_idx, img_file in enumerate(img_paths):
         #img_grid = torchvision.transforms.functional.resize(img_grid, size=(img_grid.shape[1] * 4, img_grid.shape[2] * 4), interpolation=torchvision.transforms.InterpolationMode.NEAREST)
 
         #writer.add_image('sample', img_grid, em_step)
-        save_image(img_grid, './images/img_p{0}_idx{1}.png'.format('{0:06.3f}'.format(img_idx), str(em_step).zfill(12)))
+        save_image(img_grid, './images/illusion_{0}_idx_{1}.png'.format(img_idx, str(em_step).zfill(12)))
 
 #writer.close()
