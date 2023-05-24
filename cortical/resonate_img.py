@@ -92,6 +92,8 @@ path.mkdir(parents=True, exist_ok=True)
 
 # ## Set Backend
 backend_name = "torch"
+#backend_name = "torch.float32"
+#backend_name = "torch.float16"
 #backend_name = "torch.cuda.float32"
 #backend_name = "torch.cuda.float64"
 fdtd.set_backend(backend_name)
@@ -100,8 +102,14 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((120,120)),
-                               torchvision.transforms.ToTensor()])
+image_transform = torchvision.transforms.Compose([
+    torchvision.transforms.RandomVerticalFlip(p=0.5),
+    torchvision.transforms.RandomHorizontalFlip(p=0.5),
+    #torchvision.transforms.RandomRotation(degrees=[0, 360], expand=True),
+    torchvision.transforms.ColorJitter(brightness=0.5, hue=0.3),
+    torchvision.transforms.RandomInvert(p=0.5),
+    torchvision.transforms.Resize((180,180)),
+    torchvision.transforms.ToTensor()])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
                                            download=True,
