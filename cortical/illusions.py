@@ -88,7 +88,7 @@ if(backend_name.startswith("torch.cuda")):
 else:
     device = "cpu"
 
-ih, iw = (120, 120)
+ih, iw = (180, 180)
 image_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((ih, iw)),
                                torchvision.transforms.ToTensor()])
 
@@ -144,7 +144,7 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 # Get the latest checkpoint
-model = AutoEncoder(grid=grid, num_em_steps=283, input_chans=3, output_chans=3).to(device)
+model = AutoEncoder(grid=grid, num_em_steps=405, input_chans=3, output_chans=3).to(device)
 if(args.load_file is not None):
     start_step = int(args.load_file.split('/')[-1].split('_')[-1].split('.')[0])
     print('Loading model {0}. Starting at step {1}.'.format(args.load_file, start_step))
