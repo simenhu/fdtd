@@ -10,6 +10,7 @@ import fdtd
 import fdtd.backend as bd
 import matplotlib.pyplot as plt
 import numpy as np
+import random
 import torch
 import torch.optim as optim
 import torchvision
@@ -74,6 +75,14 @@ def norm_img_by_chan(img):
     normed_img = (img - chan_mins[...,None])/(chans_dynamic_range[...,None])
     return normed_img 
 
+class RandomRot90:
+    # Randomly rotates the image by multiples of 90 degrees.
+    def __init__(self):
+        pass
+
+    def __call__(self, sample):
+        return torch.rot90(sample, k=random.randrange(4), dims=[1, 2])
+
 # Setup tensorboard
 tb_parent_dir = './runs/'
 repo = git.Repo(search_parent_directories=True)
@@ -103,13 +112,14 @@ else:
     device = "cpu"
 
 image_transform = torchvision.transforms.Compose([
+    torchvision.transforms.ToTensor(),
     torchvision.transforms.RandomVerticalFlip(p=0.5),
     torchvision.transforms.RandomHorizontalFlip(p=0.5),
     #torchvision.transforms.RandomRotation(degrees=[0, 360], expand=True),
+    RandomRot90(),
     torchvision.transforms.ColorJitter(brightness=0.5, hue=0.3),
     torchvision.transforms.RandomInvert(p=0.5),
-    torchvision.transforms.Resize((180,180)),
-    torchvision.transforms.ToTensor()])
+    torchvision.transforms.Resize((180,180))])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
                                            download=True,
