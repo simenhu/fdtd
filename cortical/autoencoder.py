@@ -68,17 +68,13 @@ class AutoEncoder(nn.Module):
         #TODO - remove this dumb line?
         self.cc_dirs = self.cc_dirs
         # The weights for the reconstruction loss at each em time step. 
-        self.loss_step_weights = torch.nn.Parameter(torch.ones(self.num_em_steps)/self.num_em_steps)
-        self.softmax = torch.nn.Softmax(dim=0)
+        #TODO - REMOVE THIS WEIGHT
+        #self.loss_step_weights = torch.nn.Parameter(torch.ones(self.num_em_steps)/self.num_em_steps)
 
         means = 1.0/wavelen_mean*torch.ones(num_ccs)
         stds = (means/freq_std_div)*torch.ones(num_ccs)
         self.cc_freqs  = torch.nn.Parameter(torch.normal(mean=means, std=stds))
         self.cc_phases = torch.nn.Parameter(torch.rand((num_ccs)))
-
-    def get_step_loss_weighting(self):
-        ' Calculates the weights for the reconstruction losses at every time step. '
-        return self.softmax(self.loss_step_weights)
 
     def get_em_plane(self):
         ' Extracts a slice along the image plane from the EM field. '
