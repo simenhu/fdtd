@@ -349,3 +349,79 @@ class LearnableAnisotropicObject(Object):
             curl_E: the curl of electric field in the grid.
 
         """
+
+class LearnableIsotropicObject(Object):
+    """ An object with isotropic permittivity tensor. It has a consistent permittivity throughout the object. """
+
+    def __init__(
+        self, permittivity: Tensorlike, is_substrate=False, name: str = None
+    ):
+        """
+        Args:
+            permittivity: permittivity tensor
+            conductivity: conductivity tensor (will introduce the loss)
+            is_substrate: whether or not nonlinearity will be enabled.
+            name: name of the object (will become available as attribute to the grid)
+        """
+        super().__init__(permittivity, name)
+        # Takes the field energies (E and  H) as input and outputs modifiers for the permitivity.
+        self.nonlin_conv = torch.nn.Conv2d( 2, 3*3, kernel_size=1, stride=1, padding='same')
+        self.is_substrate = is_substrate
+
+    def _register_grid(
+        self, grid: Grid, x: slice = None, y: slice = None, z: slice = None
+    ):
+        """Register a grid to the object. NOTE: this version of the object does not have
+            unique permittivity values at every point in the object. It only has a single value.
+
+        Args:
+            grid: the grid to register the object into
+            x: the x-location of the object in the grid
+            y: the y-location of the object in the grid
+            z: the z-location of the object in the grid
+        """
+        super()._register_grid(grid=grid, x=x, y=y, z=z)
+        # Override the definition of inverse permitivity to make it a single isotropic value.
+        self.inverse_permittivity = bd.ones(3, 3) / self.permittivity
+        self.inverse_permittivity.requires_grad = True
+        self.inverse_permittivity.retain_grad()
+
+    def update_E(self, curl_H):
+        """custom update equations for inside the anisotropic object
+
+        Args:
+            curl_H: the curl of magnetic field in the grid.
+
+        """
+        loc = (self.x, self.y, self.z)
+        # Nonlinear modifier calculation:
+        # Calculate energy of E and H fields.
+        if(self.is_substrate):
+            with torch.no_grad():
+                grid_energy_E = bd.sum(self.grid.E ** 2, -1)
+                grid_energy_H = bd.sum(self.grid.H ** 2, -1)
+                grid_energy = torch.stack([grid_energy_E, grid_energy_H], dim=0)
+                grid_energy = torch.permute(grid_energy, (3, 0, 1, 2))
+            nonlin_modifier = torch.sigmoid(self.nonlin_conv(grid_energy))
+            s = (1, 3, 3) + tuple(nonlin_modifier.shape[-2:])
+            nonlin_modifier = torch.reshape(nonlin_modifier, s)[..., self.Nx, self.Ny]
+        else:
+            nonlin_modifier = torch.Tensor([1.0])
+
+        numlocs = bd.reshape(curl_H[loc], (-1, 3, 1)).shape[0]
+        self.grid.E[loc] += bd.reshape(
+            self.grid.courant_number
+            * bd.bmm(
+                bd.ones(numlocs, 1, 1) * self.inverse_permittivity[None, ...] * nonlin_modifier,
+                bd.reshape(curl_H[loc], (-1, 3, 1)),
+            ),
+            (self.Nx, self.Ny, self.Nz, 3),
+        )
+
+    def update_H(self, curl_E):
+        """custom update equations for inside the anisotropic object
+
+        Args:
+            curl_E: the curl of electric field in the grid.
+
+        """

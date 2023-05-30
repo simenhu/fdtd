@@ -115,11 +115,10 @@ image_transform = torchvision.transforms.Compose([
     torchvision.transforms.ToTensor(),
     torchvision.transforms.RandomVerticalFlip(p=0.5),
     torchvision.transforms.RandomHorizontalFlip(p=0.5),
-    #torchvision.transforms.RandomRotation(degrees=[0, 360], expand=True),
     RandomRot90(),
     torchvision.transforms.ColorJitter(brightness=0.5, hue=0.3),
     torchvision.transforms.RandomInvert(p=0.5),
-    torchvision.transforms.Resize((130,130))])
+    torchvision.transforms.Resize((30,30))])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
                                            download=True,
@@ -163,11 +162,12 @@ em_steps = int(grid_diag_steps*args.coverage_ratio)
 
 
 # Create learnable objects at the boundaries
-grid[  0: bw, :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xlow")
-grid[-bw:   , :, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="xhigh")
-grid[:,   0:bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="ylow")
-grid[:, -bw:  , :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, name="yhigh")
-grid[:, :, 0] = fdtd.PeriodicBoundary(name="zbounds")
+grid[  0: bw, :, :] = fdtd.LearnableIsotropicObject(permittivity=2.5, name="xlow")
+grid[-bw:   , :, :] = fdtd.LearnableIsotropicObject(permittivity=2.5, name="xhigh")
+grid[:,   0:bw, :]  = fdtd.LearnableIsotropicObject(permittivity=2.5, name="ylow")
+grid[:, -bw:  , :]  = fdtd.LearnableIsotropicObject(permittivity=2.5, name="yhigh")
+grid[:, :, 0]       = fdtd.PeriodicBoundary(name="zbounds")
+
 
 # Creat the cortical column sources
 grid[bw:bw+ih,bw:bw+iw,0] = fdtd.CorticalColumnPlaneSource(
@@ -177,7 +177,7 @@ grid[bw:bw+ih,bw:bw+iw,0] = fdtd.CorticalColumnPlaneSource(
 )
 
 # Object defining the cortical column substrate 
-grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, is_substrate=True, name="cc_substrate")
+grid[bw:-bw, bw:-bw, :] = fdtd.LearnableIsotropicObject(permittivity=2.5, is_substrate=True, name="cc_substrate")
 # List all model checkpoints
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 
@@ -264,10 +264,16 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
             except:
                 print('WARNING: loading param {0} was not successful, resizing original'.format(grid_params_to_learn[idx].name))
                 print('Resizing from ', tensor.shape, ' to ', grid_params_to_learn[idx][...].shape)
-                #TODO - make this general.
+                #TODO - make this general. Flatten them maybe? 
                 grid_params_to_learn[idx][...] = torch.nn.functional.interpolate(loss_step_weights[None, None, ...], (em_steps))[0, 0, ...]
                 load_optimizer = False
                 print('Not loading optimizer params.')
+                user_input = input('Enter \'c\' to cancel training or anything else to continue...')
+                if(user_input == 'c'):
+                    sys.exit()
+                else:
+                    print('Continuing...')
+                
 
 # Combine grid and model params and register them with the optimizer.
 params_to_learn = [*model.parameters()] + grid_params_to_learn
@@ -317,12 +323,6 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
         norm_img_by_chan(e_field_img), 
         norm_img_by_chan(h_field_img)])
     writer.add_image('sample', img_grid, train_step)
-
-    perm = torch.reshape(get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, iw, ih))
-    writer.add_image('ccsubstrate1', perm[0:3,...], train_step)
-    writer.add_image('ccsubstrate2', perm[3:6,...], train_step)
-    writer.add_image('ccsubstrate3', perm[6:9,...], train_step)
-
 
     writer.add_scalar('Total Loss', loss, train_step)
     writer.add_histogram('Loss Per Step', loss_per_step, train_step)
