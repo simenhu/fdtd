@@ -186,7 +186,7 @@ torch.autograd.set_detect_anomaly(True)
 # The weights for the reconstruction loss at each em time step. 
 loss_step_weights = torch.ones(em_steps)/em_steps
 loss_step_weights = torch.nn.Parameter(torch.reshape(loss_step_weights, (-1, 1, 1, 1, 1)))
-#loss_step_weights.requires_grad = True
+loss_step_weights.requires_grad = True
 softmax = torch.nn.Softmax(dim=0)
 
 # Initialize the model and grid with default params.
