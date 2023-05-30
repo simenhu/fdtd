@@ -119,7 +119,7 @@ image_transform = torchvision.transforms.Compose([
     RandomRot90(),
     torchvision.transforms.ColorJitter(brightness=0.5, hue=0.3),
     torchvision.transforms.RandomInvert(p=0.5),
-    torchvision.transforms.Resize((180,180))])
+    torchvision.transforms.Resize((30,30))])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
                                            download=True,
@@ -160,6 +160,7 @@ grid_diag_steps = int(grid_diag_len/SPEED_LIGHT/grid.time_step)+1
 print('Time Steps to Cover Entire Grid: ', grid_diag_steps)
 # The number of steps is based on the coverage ratio.
 em_steps = int(grid_diag_steps*args.coverage_ratio)
+#em_steps = 283
 
 
 # Create learnable objects at the boundaries
@@ -182,6 +183,12 @@ grid[bw:-bw, bw:-bw, :] = fdtd.LearnableAnisotropicObject(permittivity=2.5, is_s
 checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_checkpoint_dir, f)) and f.endswith('.pt'))]
 
 torch.autograd.set_detect_anomaly(True)
+# The weights for the reconstruction loss at each em time step. 
+loss_step_weights = torch.ones(em_steps)/em_steps
+loss_step_weights = torch.nn.Parameter(torch.reshape(loss_step_weights, (-1, 1, 1, 1, 1)))
+#loss_step_weights.requires_grad = True
+softmax = torch.nn.Softmax(dim=0)
+
 # Initialize the model and grid with default params.
 model = AutoEncoder(num_em_steps=em_steps, grid=grid, input_chans=3, output_chans=3).to(device)
 print('All grid objects: ', [obj.name for obj in grid.objects])
@@ -197,6 +204,8 @@ grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').nonlin_conv.bi
 # Nonlinearity weights for the cortical columns. 
 grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.weight]
 grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.bias]
+# The weights for the loss.
+grid_params_to_learn += [loss_step_weights]
 # Load saved params for model and optimizer.
 checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
 if(args.load_file is not None):
@@ -248,19 +257,44 @@ def toy_img(img):
     img[..., x:x+s, y:y+s] = b
     return bd.array(img[:,0,...])
 
+reset_optimizer = False
 if((grid_path is not None) and (not args.reset_grid_optim)):
     print('Loading grid params...')
     with torch.no_grad():
         load_grid_params_to_learn = torch.load(grid_path)
         for idx, tensor in enumerate(load_grid_params_to_learn):
-            grid_params_to_learn[idx][...] = tensor[...]
+            try:
+                grid_params_to_learn[idx][...] = tensor[...]
+            except:
+                # Interpolate the thing....
+                print('ERROR: shapes are mismatched: {0} vs {1}'.format(tensor[...].shape, grid_params_to_learn[idx][...].shape))
+                # Interpolate the old tensors to fit the new shape.
+                print('1: ', tensor.shape)
+                input_t = torch.reshape(tensor, tensor.shape[:-2] + (-1,))
+                print('2: ', input_t.shape)
+                input_t = torch.permute(input_t, (2, 3, 0, 1))
+                print('3: ', input_t.shape)
+                new_t  = torch.reshape(grid_params_to_learn[idx][...], grid_params_to_learn[idx][...].shape[:-2] + (-1,))
+                print('4: ', new_t.shape)
+                new_t  = torch.permute(new_t, (2, 3, 0, 1))
+                print('5: ', new_t.shape)
+                interpolated_t = torch.nn.functional.interpolate(input_t, (new_t.shape[-2], new_t.shape[-1]))
+                print('6: ', interpolated_t.shape)
+                interpolated_t = torch.permute(interpolated_t, (1, 2, 0, 3))
+                print('7: ', interpolated_t.shape)
+
+                grid_params_to_learn[idx][...] = torch.reshape(interpolated_t, grid_params_to_learn[idx][...].shape)
+                # Since parameter shapes have changed, the optimizer weights are obsolete.
+                reset_optimizer = True
 
 # Combine grid and model params and register them with the optimizer.
 params_to_learn = [*model.parameters()] + grid_params_to_learn
 optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
-if((optimizer_path is not None) and (not args.reset_grid_optim)):
+if((not reset_optimizer) and (optimizer_path is not None) and (not args.reset_grid_optim)):
     print('Loading optimizer params...')
     optimizer.load_state_dict(torch.load(optimizer_path))
+else:
+    print('Starting with a fresh optimizer.')
 
 mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
@@ -284,16 +318,16 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
 
     loss_list = []
     # Get sample from training data
-    em_step_loss_weights = model.get_step_loss_weighting()
-    argmax_step = torch.argmax(em_step_loss_weights)
+    em_step_loss_weight_dist = softmax(torch.squeeze(loss_step_weights))
+    argmax_step = torch.argmax(torch.squeeze(loss_step_weights))
     for em_step, (img_hat_em, em_field) in enumerate(model(img)):
-        loss_list += [loss_fn(img_hat_em, img)]
+        loss_list += [loss_fn(img_hat_em[None, ...], img)]
         if(em_step == argmax_step):
             e_field_img = em_field[0:3,...]
             h_field_img = em_field[3:6,...]
             img_hat_em_save = img_hat_em
     loss_per_step = torch.stack(loss_list)
-    weighted_loss_per_step = loss_per_step * em_step_loss_weights
+    weighted_loss_per_step = loss_per_step * em_step_loss_weight_dist
     loss = torch.sum(weighted_loss_per_step)
 
     # Add the argmaxxed images to tensorboard
@@ -311,7 +345,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     writer.add_scalar('Total Loss', loss, train_step)
     writer.add_histogram('Loss Per Step', loss_per_step, train_step)
     writer.add_histogram('Weighted Loss Per Step', weighted_loss_per_step, train_step)
-    writer.add_histogram('Loss EM Step Weights', model.loss_step_weights, train_step)
+    writer.add_histogram('Loss EM Step Weights', loss_step_weights, train_step)
     writer.add_scalar('em_steps', em_steps, train_step)
     writer.add_scalar('ccsubstate_sum', 
             torch.sum(get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)
