@@ -119,7 +119,7 @@ image_transform = torchvision.transforms.Compose([
     RandomRot90(),
     torchvision.transforms.ColorJitter(brightness=0.5, hue=0.3),
     torchvision.transforms.RandomInvert(p=0.5),
-    torchvision.transforms.Resize((30,30))])
+    torchvision.transforms.Resize((40,40))])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
                                            download=True,
@@ -278,7 +278,7 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
                 print('4: ', new_t.shape)
                 new_t  = torch.permute(new_t, (2, 3, 0, 1))
                 print('5: ', new_t.shape)
-                interpolated_t = torch.nn.functional.interpolate(input_t, (new_t.shape[-2], new_t.shape[-1]))
+                interpolated_t = torch.nn.functional.interpolate(input_t, (new_t.shape[-2], new_t.shape[-1]), mode='bilinear', align_corners=True)
                 print('6: ', interpolated_t.shape)
                 interpolated_t = torch.permute(interpolated_t, (1, 2, 0, 3))
                 print('7: ', interpolated_t.shape)
