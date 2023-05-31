@@ -35,6 +35,10 @@ parser.add_argument('-d', '--dry-run', type=bool, default=False,
                     help='If true, does not save model checkpoint.')
 parser.add_argument('-rog', '--reset-grid-optim', type=bool, default=False,
                     help='If true, loads completely new params for the grid and optimizer.')
+parser.add_argument('-is', '--image-size', type=int, default=40,
+                    help='Size of each side of the image. Determines grid size.')
+parser.add_argument('-sc', '--image-scaler', type=int, default=1,
+                    help='How much to scale the entire simulation by (changes the dimensions of the model).')
 args = parser.parse_args()
 
 #TODO - move this to a util file next cleanup
@@ -119,7 +123,7 @@ image_transform = torchvision.transforms.Compose([
     RandomRot90(),
     torchvision.transforms.ColorJitter(brightness=0.5, hue=0.3),
     torchvision.transforms.RandomInvert(p=0.5),
-    torchvision.transforms.Resize((40,40))])
+    torchvision.transforms.Resize((args.image_size, args.image_size))])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
                                            download=True,
@@ -142,9 +146,9 @@ GRID_SPACING = 0.1 * WAVELENGTH # meters
 
 
 # Size of grid boundary layer
-bw = 10
+bw = 10*args.image_scaler
 # Create FDTD Grid
-grid_h, grid_w = (ih+bw*2, iw+bw*2)
+grid_h, grid_w = (ih*args.image_scaler+bw*2, iw*args.image_scaler+bw*2)
 # Boundaries with width bw
 grid = fdtd.Grid(
     (grid_h, grid_w, 1),
@@ -185,7 +189,7 @@ checkpoints = [f for f in listdir(model_checkpoint_dir) if(isfile(join(model_che
 torch.autograd.set_detect_anomaly(True)
 # The weights for the reconstruction loss at each em time step. 
 loss_step_weights = torch.ones(em_steps)/em_steps
-loss_step_weights = torch.nn.Parameter(torch.reshape(loss_step_weights, (-1, 1, 1, 1, 1)))
+#loss_step_weights = torch.nn.Parameter(torch.reshape(loss_step_weights, (-1, 1, 1, 1, 1)))
 loss_step_weights.requires_grad = True
 softmax = torch.nn.Softmax(dim=0)
 
@@ -263,27 +267,30 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
     with torch.no_grad():
         load_grid_params_to_learn = torch.load(grid_path)
         for idx, tensor in enumerate(load_grid_params_to_learn):
-            try:
+            if(args.image_scaler == 1 or tensor.shape == grid_params_to_learn[idx][...].shape):
                 grid_params_to_learn[idx][...] = tensor[...]
-            except:
+            else:
+                if(idx == len(load_grid_params_to_learn) - 1):
+                    tensor = torch.squeeze(tensor)
                 # Interpolate the thing....
-                print('ERROR: shapes are mismatched: {0} vs {1}'.format(tensor[...].shape, grid_params_to_learn[idx][...].shape))
-                # Interpolate the old tensors to fit the new shape.
-                print('1: ', tensor.shape)
-                input_t = torch.reshape(tensor, tensor.shape[:-2] + (-1,))
-                print('2: ', input_t.shape)
-                input_t = torch.permute(input_t, (2, 3, 0, 1))
-                print('3: ', input_t.shape)
-                new_t  = torch.reshape(grid_params_to_learn[idx][...], grid_params_to_learn[idx][...].shape[:-2] + (-1,))
-                print('4: ', new_t.shape)
-                new_t  = torch.permute(new_t, (2, 3, 0, 1))
-                print('5: ', new_t.shape)
-                interpolated_t = torch.nn.functional.interpolate(input_t, (new_t.shape[-2], new_t.shape[-1]), mode='bilinear', align_corners=True)
-                print('6: ', interpolated_t.shape)
-                interpolated_t = torch.permute(interpolated_t, (1, 2, 0, 3))
-                print('7: ', interpolated_t.shape)
+                print('INFO: grid is being scaled. Shapes are mismatched: {0} vs {1}'.format(tensor[...].shape, grid_params_to_learn[idx][...].shape))
+                
+                # If this is a grid param, expand it over the spatial dims.
+                if(len(tensor.shape) > 1):
+                    reps = torch.ones(len(tensor.shape), dtype=int)
+                    for i in range(len(reps)):
+                        reps[i] = args.image_scaler
+                        if(i >= 1):
+                            break
 
-                grid_params_to_learn[idx][...] = torch.reshape(interpolated_t, grid_params_to_learn[idx][...].shape)
+                    print('Reps: ', reps)
+                    grid_params_to_learn[idx][...] = tensor.repeat(tuple(reps))
+                    print('New shape: ', grid_params_to_learn[idx][...].shape)
+                # If this is the loss step weights, scale it linearly to fit the new size.
+                else:
+                    x = torch.nn.functional.interpolate(tensor[None, None, ...], grid_params_to_learn[idx][...].shape, mode='linear')
+                    print(x.shape)
+
                 # Since parameter shapes have changed, the optimizer weights are obsolete.
                 reset_optimizer = True
 
