@@ -129,7 +129,7 @@ train_dataset = torchvision.datasets.Flowers102('flowers102/',
                                            split='train',
                                            download=True,
                                            transform=image_transform)
-#TODO - turn SHUFFLE back to TRUE for training on multiple images.
+# Note - turn SHUFFLE back to TRUE for training on multiple images.
 train_loader = torch.utils.data.DataLoader(train_dataset,
                                            batch_size=1, 
                                            shuffle=True)
@@ -274,7 +274,7 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
                 if(idx == len(load_grid_params_to_learn) - 1):
                     tensor = torch.squeeze(tensor)
                 # Interpolate the thing....
-                print('INFO: grid is being scaled. Shapes are mismatched: {0} vs {1}'.format(tensor[...].shape, grid_params_to_learn[idx][...].shape))
+                print('INFO: Shapes are mismatched: {0} vs {1}'.format(tensor[...].shape, grid_params_to_learn[idx][...].shape))
                 
                 # If this is a grid param, expand it over the spatial dims.
                 if(len(tensor.shape) > 1):
@@ -284,16 +284,12 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
                         if(i >= 1):
                             break
 
-                    print('Reps: ', reps)
-                    #grid_params_to_learn[idx][...] = tensor.repeat(tuple(reps))
-                    
                     tensor_np_interp = scipy.ndimage.zoom(tensor.detach().numpy(), reps, order=1)
                     grid_params_to_learn[idx][...] = torch.from_numpy(tensor_np_interp)
-                    print('New shape: ', grid_params_to_learn[idx][...].shape)
+                    print('INFO: Grid object scaled to shape: ', grid_params_to_learn[idx][...].shape)
                 # If this is the loss step weights, scale it linearly to fit the new size.
                 else:
                     x = torch.nn.functional.interpolate(tensor[None, None, ...], grid_params_to_learn[idx][...].shape, mode='linear')
-                    print(x.shape)
 
                 # Since parameter shapes have changed, the optimizer weights are obsolete.
                 reset_optimizer = True
@@ -302,10 +298,10 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
 params_to_learn = [*model.parameters()] + grid_params_to_learn
 optimizer = optim.AdamW(params_to_learn, lr=0.0001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01, amsgrad=False)
 if((not reset_optimizer) and (optimizer_path is not None) and (not args.reset_grid_optim)):
-    print('Loading optimizer params...')
+    print('INFO: Loading saved optimizer params...')
     optimizer.load_state_dict(torch.load(optimizer_path))
 else:
-    print('Starting with a fresh optimizer.')
+    print('INFO: Starting with a fresh optimizer.')
 
 mse = torch.nn.MSELoss(reduce=False)
 loss_fn = torch.nn.MSELoss()
