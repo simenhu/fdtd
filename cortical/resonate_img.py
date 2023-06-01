@@ -289,7 +289,11 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
                     print('INFO: Grid object scaled to shape: ', grid_params_to_learn[idx][...].shape)
                 # If this is the loss step weights, scale it linearly to fit the new size.
                 else:
-                    x = torch.nn.functional.interpolate(tensor[None, None, ...], grid_params_to_learn[idx][...].shape, mode='linear')
+                    tensor_interp = torch.nn.functional.interpolate(tensor[None, None, ...], grid_params_to_learn[idx][...].shape, mode='linear')
+                    grid_params_to_learn[idx][...] = tensor_interp
+                    print('INFO: EM Step loss object scaled to shape: ', grid_params_to_learn[idx][...].shape)
+                    print('EM Steps: ', em_steps)
+                    print('Loss step weights: ', loss_step_weights.shape)
 
                 # Since parameter shapes have changed, the optimizer weights are obsolete.
                 reset_optimizer = True
@@ -325,7 +329,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
 
     loss_list = []
     # Get sample from training data
-    em_step_loss_weight_dist = softmax(torch.squeeze(loss_step_weights))
+    em_step_loss_weight_dist = softmax(loss_step_weights)
     argmax_step = torch.argmax(torch.squeeze(loss_step_weights))
     for em_step, (img_hat_em, em_field) in enumerate(model(img)):
         loss_list += [loss_fn(img_hat_em[None, ...], img)]
