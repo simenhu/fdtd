@@ -15,6 +15,7 @@ import torch
 import torch.optim as optim
 import torchvision
 from torch.utils.tensorboard import SummaryWriter
+import scipy
 from autoencoder import AutoEncoder
 import argparse
 from os import listdir
@@ -123,7 +124,7 @@ image_transform = torchvision.transforms.Compose([
     RandomRot90(),
     torchvision.transforms.ColorJitter(brightness=0.5, hue=0.3),
     torchvision.transforms.RandomInvert(p=0.5),
-    torchvision.transforms.Resize((args.image_size, args.image_size))])
+    torchvision.transforms.Resize((args.image_size*args.image_scaler, args.image_size*args.image_scaler))])
 train_dataset = torchvision.datasets.Flowers102('flowers102/', 
                                            split='train',
                                            download=True,
@@ -148,7 +149,8 @@ GRID_SPACING = 0.1 * WAVELENGTH # meters
 # Size of grid boundary layer
 bw = 10*args.image_scaler
 # Create FDTD Grid
-grid_h, grid_w = (ih*args.image_scaler+bw*2, iw*args.image_scaler+bw*2)
+grid_h, grid_w = (ih+bw*2, iw+bw*2)
+print('Grid height and width: ', grid_h, grid_w)
 # Boundaries with width bw
 grid = fdtd.Grid(
     (grid_h, grid_w, 1),
@@ -164,7 +166,6 @@ grid_diag_steps = int(grid_diag_len/SPEED_LIGHT/grid.time_step)+1
 print('Time Steps to Cover Entire Grid: ', grid_diag_steps)
 # The number of steps is based on the coverage ratio.
 em_steps = int(grid_diag_steps*args.coverage_ratio)
-#em_steps = 283
 
 
 # Create learnable objects at the boundaries
@@ -277,14 +278,17 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
                 
                 # If this is a grid param, expand it over the spatial dims.
                 if(len(tensor.shape) > 1):
-                    reps = torch.ones(len(tensor.shape), dtype=int)
+                    reps = np.ones(len(tensor.shape), dtype=int)
                     for i in range(len(reps)):
                         reps[i] = args.image_scaler
                         if(i >= 1):
                             break
 
                     print('Reps: ', reps)
-                    grid_params_to_learn[idx][...] = tensor.repeat(tuple(reps))
+                    #grid_params_to_learn[idx][...] = tensor.repeat(tuple(reps))
+                    
+                    tensor_np_interp = scipy.ndimage.zoom(tensor.detach().numpy(), reps, order=1)
+                    grid_params_to_learn[idx][...] = torch.from_numpy(tensor_np_interp)
                     print('New shape: ', grid_params_to_learn[idx][...].shape)
                 # If this is the loss step weights, scale it linearly to fit the new size.
                 else:
