@@ -163,9 +163,10 @@ grid = fdtd.Grid(
 grid_diag_cells = math.sqrt(grid_h**2 + grid_w**2)
 grid_diag_len = grid_diag_cells * GRID_SPACING
 grid_diag_steps = int(grid_diag_len/SPEED_LIGHT/grid.time_step)+1
-print('Time Steps to Cover Entire Grid: ', grid_diag_steps)
+print('Time steps to cover entire grid: ', grid_diag_steps)
 # The number of steps is based on the coverage ratio.
 em_steps = int(grid_diag_steps*args.coverage_ratio)
+print('Time steps the grid will run for: ', em_steps)
 
 
 # Create learnable objects at the boundaries
@@ -268,7 +269,7 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
     with torch.no_grad():
         load_grid_params_to_learn = torch.load(grid_path)
         for idx, tensor in enumerate(load_grid_params_to_learn):
-            if(args.image_scaler == 1 or tensor.shape == grid_params_to_learn[idx][...].shape):
+            if(tensor.shape == grid_params_to_learn[idx][...].shape):
                 grid_params_to_learn[idx][...] = tensor[...]
             else:
                 if(idx == len(load_grid_params_to_learn) - 1):
