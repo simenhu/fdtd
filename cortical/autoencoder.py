@@ -8,6 +8,7 @@ import torchvision.transforms.functional as F
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm_notebook as tqdm
+from torch.profiler import profile, record_function, ProfilerActivity
 
 
 plt.rcParams["savefig.bbox"] = 'tight'
@@ -83,30 +84,33 @@ class AutoEncoder(nn.Module):
     def forward(self, x, em_steps=None, amp_scaler=1.0):
         ## 1 - Extract features
         # Convert image into amplitude, frequency, and phase shift for our CCs.
-        x = self.conv1(x)
-        x = torch.relu(x)
-        x = self.conv2(x)
-        x = torch.relu(x)
-        x = self.conv3(x)
-        x = torch.relu(x)
-        x = self.conv4(x)
-        x = torch.relu(x)
-        x = self.conv5(x)
-        x = torch.relu(x)
-        x = self.conv6(x)
-        x = torch.relu(x)
-        x = self.conv7(x)
-        cc_activations = x
+        with record_function('ae_encoder'):
+            x = self.conv1(x)
+            x = torch.relu(x)
+            x = self.conv2(x)
+            x = torch.relu(x)
+            x = self.conv3(x)
+            x = torch.relu(x)
+            x = self.conv4(x)
+            x = torch.relu(x)
+            x = self.conv5(x)
+            x = torch.relu(x)
+            x = self.conv6(x)
+            x = torch.relu(x)
+            x = self.conv7(x)
+            cc_activations = x
 
         ## 2 - Seed the cc grid source
-        self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases, amp_scaler)
+        with record_function('em_sim'):
+            self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases, amp_scaler)
 
-        # 3 - Run the grid and generate output
-        if(em_steps is None or em_steps == 0):
-            em_steps = self.num_em_steps
+            # 3 - Run the grid and generate output
+            if(em_steps is None or em_steps == 0):
+                em_steps = self.num_em_steps
 
-        for em_step in range(em_steps):
-            self.em_grid.run(1 , progress_bar=False)
-            em_plane = self.get_em_plane()
-            x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
-            yield x_hat_em, em_plane
+            for em_step in range(em_steps):
+                self.em_grid.run(1 , progress_bar=False)
+                em_plane = self.get_em_plane()
+                with record_function('ae_decoder'):
+                    x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
+                yield x_hat_em, em_plane
