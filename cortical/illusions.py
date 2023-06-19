@@ -22,6 +22,7 @@ import argparse
 from os import listdir
 from os.path import isfile, join
 from PIL import Image
+import pickle
 
 parser = argparse.ArgumentParser(description='Process args.')
 parser.add_argument('-f', '--load-file', type=str, default=None,
@@ -91,18 +92,10 @@ class RandomRot90:
     def __call__(self, sample):
         return torch.rot90(sample, k=random.randrange(4), dims=[1, 2])
 
-# Setup tensorboard
-tb_parent_dir = './runs/'
-repo = git.Repo(search_parent_directories=True)
-sha = repo.head.object.hexsha
-#head = repo.head
-local_branch = repo.active_branch.name
-run_dir = local_branch + '/' + sha[-3:] + '/' +  datetime.datetime.now().isoformat(timespec='seconds') + '/'
-print('TB Log Directory is: ', tb_parent_dir + run_dir)
-writer = SummaryWriter(log_dir=tb_parent_dir + run_dir)
-
 # Setup model saving
 model_parent_dir = './model_checkpoints/'
+repo = git.Repo(search_parent_directories=True)
+local_branch = repo.active_branch.name
 model_checkpoint_dir = model_parent_dir + local_branch + '/'
 
 # ## Set Backend
@@ -280,10 +273,12 @@ if((grid_path is not None)):
 
 # Combine grid and model params and register them with the optimizer.
 
+# Array of EM powers by illusion by time step
+power_graph = {}
 with torch.inference_mode():
     # Add images to tensorboard
     for img_idx, img_file in enumerate(img_paths):
-        #img = cv2.imread(img_file)
+        power_graph[img_file] = {'E': [], 'H': []}
         img = Image.open(img_file)
         img = image_transform(img)[None, ...]
         print(img_file, img.shape)
@@ -294,13 +289,16 @@ with torch.inference_mode():
             # Process outputs
             e_field_img = em_field[0:3,...]
             h_field_img = em_field[3:6,...]
+            power_graph[img_file]['E'] += [torch.sum(e_field_img**2).numpy()]
+            power_graph[img_file]['H'] += [torch.sum(h_field_img**2).numpy()]
             # Write to TB
             img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em,
                 norm_img_by_chan(e_field_img), 
                 norm_img_by_chan(h_field_img)])
-            #img_grid = torchvision.transforms.functional.resize(img_grid, size=(img_grid.shape[1] * 4, img_grid.shape[2] * 4), interpolation=torchvision.transforms.InterpolationMode.NEAREST)
+            img_grid = torchvision.transforms.functional.resize(img_grid, size=(img_grid.shape[1] * 4, img_grid.shape[2] * 4), interpolation=torchvision.transforms.InterpolationMode.NEAREST)
 
-            #writer.add_image('sample', img_grid, em_step)
             save_image(img_grid, './images/img_p{0}_idx{1}.png'.format('{0:06.3f}'.format(img_idx), str(em_step).zfill(12)))
 
 
+with open('./power_graph.pkl', 'wb') as f:
+    pickle.dump(power_graph, f)
