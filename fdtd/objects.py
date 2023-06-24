@@ -323,16 +323,18 @@ class LearnableAnisotropicObject(Object):
         # Calculate energy of E and H fields.
         if(self.is_substrate):
             with torch.no_grad():
-                grid_energy_E = bd.sum(self.grid.E ** 2, -1)
-                grid_energy_H = bd.sum(self.grid.H ** 2, -1)
+                grid_energy_E = bd.sum(self.grid.E[self.x, self.y, self.z] ** 2, -1)
+                grid_energy_H = bd.sum(self.grid.H[self.x, self.y, self.z] ** 2, -1)
                 grid_energy = torch.stack([grid_energy_E, grid_energy_H], dim=0)
                 grid_energy = torch.permute(grid_energy, (3, 0, 1, 2))
             nonlin_modifier = torch.sigmoid(self.nonlin_conv(grid_energy))
             s = (1, 3, 3) + tuple(nonlin_modifier.shape[-2:])
-            nonlin_modifier = torch.reshape(nonlin_modifier, s)[..., self.Nx, self.Ny]
+            nonlin_modifier = torch.reshape(nonlin_modifier, s)
+            nonlin_modifier = torch.permute(nonlin_modifier, (3, 4, 0, 1, 2))
         else:
             nonlin_modifier = torch.Tensor([1.0])
-
+        
+        
         self.grid.E[loc] += bd.reshape(
             self.grid.courant_number
             * bd.bmm(
