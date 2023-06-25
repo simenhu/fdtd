@@ -311,6 +311,13 @@ class LearnableAnisotropicObject(Object):
         self.inverse_permittivity.requires_grad = True
         self.inverse_permittivity.retain_grad()
 
+    def seed(self, sm_activations):
+        '''
+        sm_activations: (permitivity_shape, H, W)
+        '''
+        sm_activations = torch.reshape(sm_activations, (1, 3, 3, self.Nx, self.Ny))
+        self.sm_activations = torch.permute(sm_activations, (3, 4, 0, 1, 2))
+
     def update_E(self, curl_H):
         """custom update equations for inside the anisotropic object
 
@@ -331,6 +338,11 @@ class LearnableAnisotropicObject(Object):
             s = (1, 3, 3) + tuple(nonlin_modifier.shape[-2:])
             nonlin_modifier = torch.reshape(nonlin_modifier, s)
             nonlin_modifier = torch.permute(nonlin_modifier, (3, 4, 0, 1, 2))
+            # Add the substrate modifier activations to nonlin_modifier
+            if(self.sm_activations is None):
+                print('Error: substrate object must be seeded')
+                sys.exit()
+            nonlin_modifier = nonlin_modifier * self.sm_activations
         else:
             nonlin_modifier = torch.Tensor([1.0])
         

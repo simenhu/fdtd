@@ -20,6 +20,7 @@ from autoencoder import AutoEncoder
 import argparse
 from os import listdir
 from os.path import isfile, join
+import util
 
 parser = argparse.ArgumentParser(description='Process args.')
 parser.add_argument('-f', '--load-file', type=str, default=None,
@@ -42,51 +43,6 @@ parser.add_argument('-sc', '--image-scaler', type=int, default=1,
                     help='How much to scale the entire simulation by (changes the dimensions of the model).')
 args = parser.parse_args()
 
-#TODO - move this to a util file next cleanup
-def get_sample_img(img_loader, color=True):
-    _, (example_datas, labels) = next(enumerate(img_loader))
-    if(color):
-        sample = example_datas[0]
-        sample = sample.to(device)[None, :]
-    else:
-        sample = example_datas[0][0]
-        sample = sample.to(device)[None, None, :]
-    return sample
-
-def get_object_by_name(grid, name):
-    for obj in grid.objects:
-        if(obj.name == name):
-            return obj
-    else:
-        print('Could not find object: ', name)
-        sys.exit()
-def get_source_by_name(grid, name):
-    for src in grid.sources:
-        if(src.name == name):
-            return src 
-    else:
-        print('Could not find object: ', name)
-        sys.exit()
-
-def norm_img_by_chan(img):
-    '''
-    Puts each channel into the range [0,1].
-    Expects input to be in CHW config.
-    '''
-    img_flat = torch.reshape(img, (3, -1))
-    chan_maxes, _ = torch.max(img_flat, dim=-1, keepdims=True) 
-    chan_mins, _  = torch.min(img_flat, dim=-1, keepdims=True) 
-    chans_dynamic_range = chan_maxes - chan_mins
-    normed_img = (img - chan_mins[...,None])/(chans_dynamic_range[...,None])
-    return normed_img 
-
-class RandomRot90:
-    # Randomly rotates the image by multiples of 90 degrees.
-    def __init__(self):
-        pass
-
-    def __call__(self, sample):
-        return torch.rot90(sample, k=random.randrange(4), dims=[1, 2])
 
 # Setup tensorboard
 tb_parent_dir = './runs/'
@@ -121,7 +77,7 @@ image_transform = torchvision.transforms.Compose([
     torchvision.transforms.RandomVerticalFlip(p=0.5),
     torchvision.transforms.RandomHorizontalFlip(p=0.5),
     #torchvision.transforms.RandomRotation(degrees=[0, 360], expand=True),
-    RandomRot90(),
+    util.RandomRot90(),
     torchvision.transforms.ColorJitter(brightness=0.5, hue=0.3),
     torchvision.transforms.RandomInvert(p=0.5),
     torchvision.transforms.Resize((args.image_size*args.image_scaler, args.image_size*args.image_scaler))])
@@ -135,7 +91,7 @@ train_loader = torch.utils.data.DataLoader(train_dataset,
                                            shuffle=True)
 
 
-sample = get_sample_img(train_loader, color=True)
+sample = util.get_sample_img(train_loader, device, color=True)
 print('Image shape: ', sample.shape)
 ih, iw = tuple(sample.shape[2:4])
 
@@ -199,17 +155,17 @@ softmax = torch.nn.Softmax(dim=0)
 model = AutoEncoder(num_em_steps=em_steps, grid=grid, input_chans=3, output_chans=3).to(device)
 print('All grid objects: ', [obj.name for obj in grid.objects])
 grid_params_to_learn = []
-grid_params_to_learn += [get_object_by_name(grid, 'xlow').inverse_permittivity]
-grid_params_to_learn += [get_object_by_name(grid, 'xhigh').inverse_permittivity]
-grid_params_to_learn += [get_object_by_name(grid, 'ylow').inverse_permittivity]
-grid_params_to_learn += [get_object_by_name(grid, 'yhigh').inverse_permittivity]
-grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
+grid_params_to_learn += [util.get_object_by_name(grid, 'xlow').inverse_permittivity]
+grid_params_to_learn += [util.get_object_by_name(grid, 'xhigh').inverse_permittivity]
+grid_params_to_learn += [util.get_object_by_name(grid, 'ylow').inverse_permittivity]
+grid_params_to_learn += [util.get_object_by_name(grid, 'yhigh').inverse_permittivity]
+grid_params_to_learn += [util.get_object_by_name(grid, 'cc_substrate').inverse_permittivity]
 # Nonlinearity weights for the substrate. 
-grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').nonlin_conv.weight]
-grid_params_to_learn += [get_object_by_name(grid, 'cc_substrate').nonlin_conv.bias]
+grid_params_to_learn += [util.get_object_by_name(grid, 'cc_substrate').nonlin_conv.weight]
+grid_params_to_learn += [util.get_object_by_name(grid, 'cc_substrate').nonlin_conv.bias]
 # Nonlinearity weights for the cortical columns. 
-grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.weight]
-grid_params_to_learn += [get_source_by_name(grid, 'cc').nonlin_conv.bias]
+grid_params_to_learn += [util.get_source_by_name(grid, 'cc').nonlin_conv.weight]
+grid_params_to_learn += [util.get_source_by_name(grid, 'cc').nonlin_conv.bias]
 # The weights for the loss.
 grid_params_to_learn += [loss_step_weights]
 # Load saved params for model and optimizer.
@@ -248,20 +204,6 @@ else:
         start_step = 0
         optimizer_path = None
         grid_path = None
-
-def toy_img(img):
-    img = torch.zeros_like(img)
-    x, y, b, s = np.random.rand(4)
-    max_size = 14
-    min_size =  6
-    max_b = 1.0
-    min_b = 0.5
-    x = int(x*(img.shape[-1] - max_size))
-    y = int(y*(img.shape[-2] - max_size))
-    b = float(min_b + b*(max_b - min_b))
-    s = int(min_size + s*(max_size - min_size))
-    img[..., x:x+s, y:y+s] = b
-    return bd.array(img[:,0,...])
 
 reset_optimizer = False
 if((grid_path is not None) and (not args.reset_grid_optim)):
@@ -322,7 +264,7 @@ stopwatch = time.time()
 # Train the weights
 for train_step in range(start_step + 1, start_step + args.max_steps):
     # Generate a new image
-    img = get_sample_img(train_loader, color=True)
+    img = util.get_sample_img(train_loader, device, color=True)
 
     # Reset grid and optimizer
     grid.reset()
@@ -344,11 +286,11 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
 
     # Add the argmaxxed images to tensorboard
     img_grid = torchvision.utils.make_grid([img[0,...], img_hat_em_save,
-        norm_img_by_chan(e_field_img), 
-        norm_img_by_chan(h_field_img)])
+        util.norm_img_by_chan(e_field_img), 
+        util.norm_img_by_chan(h_field_img)])
     writer.add_image('sample', img_grid, train_step)
 
-    perm = torch.reshape(get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, iw, ih))
+    perm = torch.reshape(util.get_object_by_name(grid, 'cc_substrate').inverse_permittivity, (-1, iw, ih))
     writer.add_image('ccsubstrate1', perm[0:3,...], train_step)
     writer.add_image('ccsubstrate2', perm[3:6,...], train_step)
     writer.add_image('ccsubstrate3', perm[6:9,...], train_step)
@@ -360,7 +302,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     writer.add_histogram('Loss EM Step Weights', loss_step_weights, train_step)
     writer.add_scalar('em_steps', em_steps, train_step)
     writer.add_scalar('ccsubstate_sum', 
-            torch.sum(get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)
+            torch.sum(util.get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)
     writer.add_scalar('Argmax EM Step', argmax_step, train_step)
 
     print('Step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
@@ -369,15 +311,17 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     writer.add_histogram('cc_dirs', model.cc_dirs, train_step)
     writer.add_histogram('cc_freqs', model.cc_freqs, train_step)
     writer.add_histogram('cc_phases', model.cc_phases, train_step)
-    writer.add_histogram('cc_nonlin_w', get_source_by_name(grid, 'cc').nonlin_conv.weight, train_step)
-    writer.add_histogram('cc_nonlin_b', get_source_by_name(grid, 'cc').nonlin_conv.bias, train_step)
-    writer.add_histogram('ccsubstrate', get_object_by_name(grid, 'cc_substrate').inverse_permittivity, train_step)
-    writer.add_histogram('ccsubstrate_nonlin_w', get_object_by_name(grid, 'cc_substrate').nonlin_conv.weight, train_step)
-    writer.add_histogram('ccsubstrate_nonlin_b', get_object_by_name(grid, 'cc_substrate').nonlin_conv.bias, train_step)
-    writer.add_histogram('xlow', get_object_by_name(grid, 'xlow').inverse_permittivity, train_step)
-    writer.add_histogram('xhigh', get_object_by_name(grid, 'xhigh').inverse_permittivity, train_step)
-    writer.add_histogram('ylow', get_object_by_name(grid, 'ylow').inverse_permittivity, train_step)
-    writer.add_histogram('yhigh', get_object_by_name(grid, 'yhigh').inverse_permittivity, train_step)
+    writer.add_histogram('sm_conv_w6', model.sm_conv6.weight, train_step)
+    writer.add_histogram('sm_conv_w7', model.sm_conv7.weight, train_step)
+    writer.add_histogram('cc_nonlin_w', util.get_source_by_name(grid, 'cc').nonlin_conv.weight, train_step)
+    writer.add_histogram('cc_nonlin_b', util.get_source_by_name(grid, 'cc').nonlin_conv.bias, train_step)
+    writer.add_histogram('ccsubstrate', util.get_object_by_name(grid, 'cc_substrate').inverse_permittivity, train_step)
+    writer.add_histogram('ccsubstrate_nonlin_w', util.get_object_by_name(grid, 'cc_substrate').nonlin_conv.weight, train_step)
+    writer.add_histogram('ccsubstrate_nonlin_b', util.get_object_by_name(grid, 'cc_substrate').nonlin_conv.bias, train_step)
+    writer.add_histogram('xlow',  util.get_object_by_name(grid, 'xlow').inverse_permittivity, train_step)
+    writer.add_histogram('xhigh', util.get_object_by_name(grid, 'xhigh').inverse_permittivity, train_step)
+    writer.add_histogram('ylow',  util.get_object_by_name(grid, 'ylow').inverse_permittivity, train_step)
+    writer.add_histogram('yhigh', util.get_object_by_name(grid, 'yhigh').inverse_permittivity, train_step)
     writer.add_histogram('e_field', e_field_img, train_step)
     writer.add_histogram('h_field', h_field_img, train_step)
 
