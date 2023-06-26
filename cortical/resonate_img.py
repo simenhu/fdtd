@@ -304,6 +304,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     writer.add_scalar('ccsubstate_sum', 
             torch.sum(util.get_object_by_name(grid, 'cc_substrate').inverse_permittivity), train_step)
     writer.add_scalar('Argmax EM Step', argmax_step, train_step)
+    writer.add_scalar('Argmax EM Step Ratio', argmax_step/em_steps, train_step)
 
     print('Step: ', train_step, '\tTime: ', grid.time_steps_passed, '\tLoss: ', loss)
 
@@ -311,8 +312,7 @@ for train_step in range(start_step + 1, start_step + args.max_steps):
     writer.add_histogram('cc_dirs', model.cc_dirs, train_step)
     writer.add_histogram('cc_freqs', model.cc_freqs, train_step)
     writer.add_histogram('cc_phases', model.cc_phases, train_step)
-    writer.add_histogram('sm_conv_w6', model.sm_conv6.weight, train_step)
-    writer.add_histogram('sm_conv_w7', model.sm_conv7.weight, train_step)
+    writer.add_histogram('sm_conv_lin', model.sm_conv_linear.weight, train_step)
     writer.add_histogram('cc_nonlin_w', util.get_source_by_name(grid, 'cc').nonlin_conv.weight, train_step)
     writer.add_histogram('cc_nonlin_b', util.get_source_by_name(grid, 'cc').nonlin_conv.bias, train_step)
     writer.add_histogram('ccsubstrate', util.get_object_by_name(grid, 'cc_substrate').inverse_permittivity, train_step)

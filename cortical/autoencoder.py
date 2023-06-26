@@ -29,11 +29,10 @@ class AutoEncoder(nn.Module):
         self.conv4 = nn.Conv2d( 8,  8, kernel_size=5, stride=1, padding='same')
         self.conv5 = nn.Conv2d( 8,  8, kernel_size=5, stride=1, padding='same')
         # Convs for CC activations
-        self.cc_conv6 = nn.Conv2d( 8,  8, kernel_size=5, stride=1, padding='same')
-        self.cc_conv7 = nn.Conv2d( 8, cc, kernel_size=5, stride=1, padding='same')
+        self.conv6 = nn.Conv2d( 8,  8, kernel_size=5, stride=1, padding='same')
+        self.conv7 = nn.Conv2d( 8, cc, kernel_size=5, stride=1, padding='same')
         # Convs for substrate manipulation
-        self.sm_conv6 = nn.Conv2d( 8,  8, kernel_size=5, stride=1, padding='same')
-        self.sm_conv7 = nn.Conv2d( 8,  9, kernel_size=5, stride=1, padding='same')
+        self.sm_conv_linear = nn.Conv2d( cc,  9, kernel_size=1, stride=1, padding='same')
         # Converts E and H fields back into an image with a linear transformation
         self.conv_linear = nn.Conv2d(6, oc, kernel_size=1, stride=1, padding='same')
         # Converts cc_activations back into an image (for aux loss)
@@ -73,18 +72,15 @@ class AutoEncoder(nn.Module):
         x = torch.relu(x)
         x = self.conv5(x)
         x = torch.relu(x)
-        # Branch to cc activation
-        x_cc = self.cc_conv6(x)
-        x_cc = torch.relu(x_cc)
-        x_cc = self.cc_conv7(x_cc)
-        cc_activations = x_cc
+        x = self.conv6(x)
+        x = torch.relu(x)
+        x = self.conv7(x)
+        cc_activations = x
         # Branch to substrate manipulation
-        x_sm = self.sm_conv6(x)
-        x_sm = torch.relu(x_sm)
-        x_sm = self.sm_conv7(x_sm)
-        sm_activations = x_sm
+        sm_activations = self.sm_conv_linear(cc_activations)
 
         ## 2 - Seed the cc grid source
+        #TODO reference this one by name like #3
         self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases, amp_scaler)
         ## 3 - Seed the substrate
         util.get_object_by_name(self.em_grid, 'cc_substrate').seed(sm_activations)
