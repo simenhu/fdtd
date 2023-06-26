@@ -41,6 +41,8 @@ parser.add_argument('-is', '--image-size', type=int, default=40,
                     help='Size of each side of the image. Determines grid size.')
 parser.add_argument('-sc', '--image-scaler', type=int, default=1,
                     help='How much to scale the entire simulation by (changes the dimensions of the model).')
+parser.add_argument('-oc', '--old-scaler', type=int, default=1,
+                    help='If the loaded file was scaled, that scaler value.')
 args = parser.parse_args()
 
 
@@ -223,7 +225,7 @@ if((grid_path is not None) and (not args.reset_grid_optim)):
                 if(len(tensor.shape) > 1):
                     reps = np.ones(len(tensor.shape), dtype=int)
                     for i in range(len(reps)):
-                        reps[i] = args.image_scaler
+                        reps[i] = int(args.image_scaler / args.old_scaler)
                         if(i >= 1):
                             break
 
