@@ -170,6 +170,7 @@ grid_params_to_learn += [util.get_source_by_name(grid, 'cc').nonlin_conv.weight]
 grid_params_to_learn += [util.get_source_by_name(grid, 'cc').nonlin_conv.bias]
 # The weights for the loss.
 grid_params_to_learn += [loss_step_weights]
+
 # Load saved params for model and optimizer.
 checkpoint_steps = [int(cf.split('_')[-1].split('.')[0]) for cf in checkpoints]
 if(args.load_file is not None):

@@ -558,6 +558,7 @@ class CorticalColumnPlaneSource(PlaneSource):
         self.nonlin_conv = torch.nn.Conv2d( 2, self.num_ccs, kernel_size=1, stride=1, padding='same')
 
     def seed(self, cc_activations, cc_dirs, cc_freqs, cc_phases, amp_scaler):
+        #TODO: this description is out of date, fix it.
         '''
         cc_activations: (num_ccs, H, W)
         cc_seeds should be of the form: (num_ccs, 2) where 3 is:
