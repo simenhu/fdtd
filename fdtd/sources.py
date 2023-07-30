@@ -107,7 +107,6 @@ class PointSource:
         else:
             src = self.amplitude * sin(2 * pi * q / self.period + self.phase_shift)
         self.grid.E[self.x, self.y, self.z, 2] += src
-        print("EEEE: ", [self.x, self.y, self.z, 2])
 
     def update_H(self):
         """Add the source to the magnetic field"""

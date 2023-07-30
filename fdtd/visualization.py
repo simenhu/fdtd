@@ -34,6 +34,7 @@ def visualize(
     pbcolor="C3",
     pmlcolor=(0, 0, 0, 0.1),
     objcolor=(1, 0, 0, 0.1),
+    objedgecolor=(1, 1, 1, 1),
     srccolor="C0",
     detcolor="C2",
     norm="linear",
@@ -306,8 +307,8 @@ def visualize(
             xy=(min(_y) - 0.5, min(_x) - 0.5),
             width=max(_y) - min(_y),
             height=max(_x) - min(_x),
-            linewidth=0,
-            edgecolor="none",
+            linewidth=1,
+            edgecolor=objedgecolor,
             facecolor=objcolor,
         )
         plt.gca().add_patch(patch)
@@ -331,13 +332,14 @@ def visualize(
     if(plot_both_fields):
         grid_color[..., 2], mask = visnorm(grid_energy_E + grid_energy_H)
     else:
+        # Blue is electric field, green is magnetic field.
         grid_color[..., 2], mask_E = visnorm(grid_energy_E)
-        grid_color[..., 0], mask_H = visnorm(grid_energy_H)
+        grid_color[..., 1], mask_H = visnorm(grid_energy_H)
         #mask = mask_E*mask_H
         mask = ((grid_energy_E + grid_energy_H) > 1e-6)
     
-    grid_color[..., 1] = 0
-    #grid_color[...,-1] = mask
+    #grid_color[..., 1] = 0
+    ##grid_color[...,-1] = mask
     grid_color[...,-1] = 0.5
     plt.imshow(bd.numpy(grid_color.detach()), interpolation="sinc")
 
