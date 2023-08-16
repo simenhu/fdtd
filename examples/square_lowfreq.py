@@ -19,6 +19,8 @@ SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 # Frequency of the brainwaves.
 BRAIN_FREQ = 34.0 # Hz
 
+input('lkjwelfjk')
+
 
 # ## Simulation
 
@@ -64,15 +66,15 @@ ye = grid.shape[1] - 10
 grid[ 10, 10:xe, 0] = fdtd.LineSource(
     period=1.0 / BRAIN_FREQ, name="linesource0"
 )
-grid[ye-1, 10:xe, 0] = fdtd.LineSource(
-    period=1.0 / BRAIN_FREQ, name="linesource1"
-)
-grid[ 10:ye, 10, 0] = fdtd.LineSource(
-    period=1.0 / BRAIN_FREQ, name="linesource2"
-)
-grid[10:ye, xe-1, 0] = fdtd.LineSource(
-    period=1.0 / BRAIN_FREQ, name="linesource3"
-)
+#grid[ye-1, 10:xe, 0] = fdtd.LineSource(
+#    period=1.0 / BRAIN_FREQ, name="linesource1"
+#)
+#grid[ 10:ye, 10, 0] = fdtd.LineSource(
+#    period=1.0 / BRAIN_FREQ, name="linesource2"
+#)
+#grid[10:ye, xe-1, 0] = fdtd.LineSource(
+#    period=1.0 / BRAIN_FREQ, name="linesource3"
+#)
 
 
 # detectors
@@ -89,16 +91,7 @@ size = 20
 #grid[midpoint_y-size//2:midpoint_y+size//2, midpoint_x-size//2:midpoint_x+size//2, 0:1] = fdtd.AnisotropicObject(permittivity=250000000000000000.0, name="object")
 #grid[midpoint_y-size//2:midpoint_y+size//2, midpoint_x-size//2:midpoint_x+size//2, 0:1] = fdtd.AnisotropicObject(permittivity=2500000.0, name="object")
 #grid[midpoint_y-size//2:midpoint_y+size//2, midpoint_x-size//2:midpoint_x+size//2, 0:1] = fdtd.AnisotropicObject(permittivity=54.0, name="object")
-import torch
-grid[40:-40, 40:-40, :] = fdtd.LearnableAnisotropicObject(permittivity=1.0, is_substrate=False, name="cc_substrate")
-conv = torch.nn.Conv2d( 2, 3*3, kernel_size=1, stride=1, padding='same')
-#grid.objects[0].nonlin_conv = lambda x : torch.ones_like(conv(x))
-
-print(grid.objects[0].inverse_permittivity.shape)
-yl, xl = grid.objects[0].Ny, grid.objects[0].Nx
-iimg = torch.ones(9, yl, xl)
-iimg[:, midpoint_y:midpoint_y + size, midpoint_x:midpoint_x + size] = 10000
-grid.objects[0].seed(iimg)
+grid[midpoint_y-size//2:midpoint_y+size//2, midpoint_x-size//2:midpoint_x+size//2, 0:1] = fdtd.AnisotropicObject(permittivity=54000.0, name="object")
 
 # grid[midpoint_y, midpoint_x, 0] = fdtd.PointSource(
 #     period=WAVELENGTH2 / SPEED_LIGHT, amplitude=0.001, name="pointsource0"
@@ -110,12 +103,13 @@ grid.objects[0].seed(iimg)
 
 
 grid.visualize(z=0, animate=True, norm="log")
-vis_steps = 10
+vis_steps = 100
 step = 0
 for i in range(1000000):
     grid.run(vis_steps, progress_bar=False)
     #grid.visualize(z=0, norm='log', animate=True)
-    grid.visualize(z=0, norm='log', animate=True, objcolor=(0, 0, 0, 0), objedgecolor=(1,1,1,1), plot_both_fields=False, save=True, folder='./sim_frames/', index=i)
+    #grid.visualize(z=0, norm='log', animate=True, objcolor=(0, 0, 0, 0), objedgecolor=(1,1,1,1), plot_both_fields=False, save=True, folder='./sim_frames/', index=i)
+    grid.visualize(z=0, norm='log', animate=True, objcolor=(0, 0, 0, 0), objedgecolor=(0,0,0,0), plot_both_fields=False, save=True, folder='./sim_frames/', index=i)
     plt.show()
     step += vis_steps
     print('On step: ', step)

@@ -17,7 +17,8 @@ WAVELENGTH = 1550e-9 # For resolution purposes.
 SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 
 # Frequency of the brainwaves.
-BRAIN_FREQ = 34.0 # Hz
+#BRAIN_FREQ = 34000000000000.0 # Hz
+BRAIN_FREQ = 3400000000.0 # Hz
 
 
 # ## Simulation
@@ -85,10 +86,10 @@ grid[10:ye, xe-1, 0] = fdtd.LineSource(
 midpoint_y = grid.shape[0]//2
 midpoint_x = grid.shape[1]//2
 size = 20
-#grid[midpoint_y-40:midpoint_y+40, midpoint_x-40:midpoint_x+40, 0:1] = fdtd.AnisotropicObject(permittivity=250000000000000000.0, name="object")
-#grid[midpoint_y-size//2:midpoint_y+size//2, midpoint_x-size//2:midpoint_x+size//2, 0:1] = fdtd.AnisotropicObject(permittivity=250000000000000000.0, name="object")
-#grid[midpoint_y-size//2:midpoint_y+size//2, midpoint_x-size//2:midpoint_x+size//2, 0:1] = fdtd.AnisotropicObject(permittivity=2500000.0, name="object")
-#grid[midpoint_y-size//2:midpoint_y+size//2, midpoint_x-size//2:midpoint_x+size//2, 0:1] = fdtd.AnisotropicObject(permittivity=54.0, name="object")
+#grid[ size + 10, size+10, 0] = fdtd.PointSource(
+#    period=1.0 / BRAIN_FREQ, name="pointsource"
+#)
+
 import torch
 grid[40:-40, 40:-40, :] = fdtd.LearnableAnisotropicObject(permittivity=1.0, is_substrate=False, name="cc_substrate")
 conv = torch.nn.Conv2d( 2, 3*3, kernel_size=1, stride=1, padding='same')
@@ -96,8 +97,9 @@ conv = torch.nn.Conv2d( 2, 3*3, kernel_size=1, stride=1, padding='same')
 
 print(grid.objects[0].inverse_permittivity.shape)
 yl, xl = grid.objects[0].Ny, grid.objects[0].Nx
-iimg = torch.ones(9, yl, xl)
-iimg[:, midpoint_y:midpoint_y + size, midpoint_x:midpoint_x + size] = 10000
+#iimg = torch.ones(9, yl, xl)
+iimg = torch.ones(9, yl, xl) * 100
+#iimg[:, midpoint_y:midpoint_y + size, midpoint_x:midpoint_x + size] = 10
 grid.objects[0].seed(iimg)
 
 # grid[midpoint_y, midpoint_x, 0] = fdtd.PointSource(

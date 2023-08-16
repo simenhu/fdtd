@@ -121,6 +121,9 @@ def visualize(
     #grid_energy = bd.sum(grid.E ** 2 + grid.H ** 2, -1)
     grid_energy_E = bd.sum(grid.E ** 2, -1)
     grid_energy_H = bd.sum(grid.H ** 2, -1)
+    #TODO: remove this print, just for debugging.
+    print('Emax: ', bd.max(grid_energy_E))
+    print('Hmax: ', bd.max(grid_energy_H))
     if x is not None:
         assert grid.Ny > 1 and grid.Nz > 1
         xlabel, ylabel = "y", "z"
