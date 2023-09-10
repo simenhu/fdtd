@@ -15,13 +15,14 @@ plt.rcParams["savefig.bbox"] = 'tight'
 
 ## Then define the model class
 class AutoEncoder(nn.Module):
-    def __init__(self, grid, num_em_steps, input_chans=3, num_ccs=16, output_chans=3, wavelen_mean=1550e-3, freq_std_div=10):
+    def __init__(self, grid, num_em_steps, input_chans=3, num_ccs=16, output_chans=3, wavelen_mean=1550e-3, freq_std_div=10, bypass_em=False):
         super(AutoEncoder, self).__init__()
         self.em_grid = grid
         self.num_em_steps = num_em_steps
         ic = input_chans
         cc = num_ccs
         oc = output_chans
+        self.bypass_em = bypass_em
         # Convolutions for common feature extractor
         self.conv1 = nn.Conv2d(ic,  8, kernel_size=5, stride=1, padding='same')
         self.conv2 = nn.Conv2d( 8, 16, kernel_size=5, stride=1, padding='same')
@@ -34,7 +35,10 @@ class AutoEncoder(nn.Module):
         # Convs for substrate manipulation
         self.sm_conv_linear = nn.Conv2d( cc,  9, kernel_size=1, stride=1, padding='same')
         # Converts E and H fields back into an image with a linear transformation
-        self.conv_linear = nn.Conv2d(6, oc, kernel_size=1, stride=1, padding='same')
+        if(bypass_em):
+            self.conv_linear = nn.Conv2d(16, oc, kernel_size=1, stride=1, padding='same')
+        else:
+            self.conv_linear = nn.Conv2d(6, oc, kernel_size=1, stride=1, padding='same')
         # Converts cc_activations back into an image (for aux loss)
         self.conv_aux1 = nn.Conv2d( cc,  8, kernel_size=3, stride=1, padding='same')
         self.conv_aux2 = nn.Conv2d(  8,  8, kernel_size=3, stride=1, padding='same')
@@ -79,18 +83,24 @@ class AutoEncoder(nn.Module):
         # Branch to substrate manipulation
         sm_activations = self.sm_conv_linear(cc_activations)
 
-        ## 2 - Seed the cc grid source
-        #TODO reference this one by name like #3
-        self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases, amp_scaler)
-        ## 3 - Seed the substrate
-        util.get_object_by_name(self.em_grid, 'cc_substrate').seed(sm_activations)
-
-        # 3 - Run the grid and generate output
-        if(em_steps is None or em_steps == 0):
-            em_steps = self.num_em_steps
-
-        for em_step in range(em_steps):
-            self.em_grid.run(1 , progress_bar=False)
+        if(self.bypass_em):
+            x_hat_em = torch.sigmoid(self.conv_linear(cc_activations))
             em_plane = self.get_em_plane()
-            x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
-            yield x_hat_em, em_plane
+            yield torch.squeeze(x_hat_em), em_plane
+        else:
+            ## 2 - Seed the cc grid source
+            #TODO reference this one by name like #3
+            self.em_grid.sources[0].seed(cc_activations, self.cc_dirs, self.cc_freqs, self.cc_phases, amp_scaler)
+
+            ## 3 - Seed the substrate
+            util.get_object_by_name(self.em_grid, 'cc_substrate').seed(sm_activations)
+
+            # 3 - Run the grid and generate output
+            if(em_steps is None or em_steps == 0):
+                em_steps = self.num_em_steps
+
+            for em_step in range(em_steps):
+                self.em_grid.run(1 , progress_bar=False)
+                em_plane = self.get_em_plane()
+                x_hat_em = torch.sigmoid(self.conv_linear(em_plane))
+                yield x_hat_em, em_plane

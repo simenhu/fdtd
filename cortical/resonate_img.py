@@ -43,6 +43,8 @@ parser.add_argument('-sc', '--image-scaler', type=int, default=1,
                     help='How much to scale the entire simulation by (changes the dimensions of the model).')
 parser.add_argument('-oc', '--old-scaler', type=int, default=1,
                     help='If the loaded file was scaled, that scaler value.')
+parser.add_argument('-bem', '--bypass-em', default=False, action='store_true',
+                    help='If set, will disable the EM component of the model.')
 args = parser.parse_args()
 
 
@@ -154,7 +156,9 @@ loss_step_weights.requires_grad = True
 softmax = torch.nn.Softmax(dim=0)
 
 # Initialize the model and grid with default params.
-model = AutoEncoder(num_em_steps=em_steps, grid=grid, input_chans=3, output_chans=3).to(device)
+for i in range(10):
+    print(args.bypass_em)
+model = AutoEncoder(num_em_steps=em_steps, grid=grid, input_chans=3, output_chans=3, bypass_em=args.bypass_em).to(device)
 print('All grid objects: ', [obj.name for obj in grid.objects])
 grid_params_to_learn = []
 grid_params_to_learn += [util.get_object_by_name(grid, 'xlow').inverse_permittivity]

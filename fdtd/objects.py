@@ -289,6 +289,7 @@ class LearnableAnisotropicObject(Object):
         # Takes the field energies (E and  H) as input and outputs modifiers for the permitivity.
         self.nonlin_conv = torch.nn.Conv2d( 2, 3*3, kernel_size=1, stride=1, padding='same')
         self.is_substrate = is_substrate
+        self.sm_activations = None
 
     def _register_grid(
         self, grid: Grid, x: slice = None, y: slice = None, z: slice = None
