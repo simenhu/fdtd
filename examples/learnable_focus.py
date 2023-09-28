@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # %%
 import fdtd
 import fdtd.backend as bd
@@ -7,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
+plt.switch_backend("Qt5Agg")
 
 
 # Set Backend
@@ -103,15 +102,20 @@ for train_step in range(max_train_steps):
     grid.H.detach()
     # Reset the grid
     
-    fig = plt.figure()
+    if train_step == 0:
+        fig, ax = plt.subplots()
 
-    if(train_step % 10 == 0):
+
+    # if(train_step % 10 == 0):
+    if False:
         for i in range(em_steps//visualizer_speed):
             grid.run(visualizer_speed, progress_bar=False)
             grid.visualize(z=0, norm='log', animate=True)
-            plt.show()
+            # plt.show()
+            fig.canvas.draw()
     else:
         grid.run(em_steps , progress_bar=False)
+
     print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed)
 
     detector_energy = bd.sum(bd.sum(grid.E[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2 
@@ -123,8 +127,7 @@ for train_step in range(max_train_steps):
     loss.backward(retain_graph=True)
     optimizer.step()
     counter += 1
-    grid.visualize(z=0, norm='log', animate=True)
-    plt.show()
+
     #print('Sum of perm: ', bd.sum(grid.objects[0].inverse_permittivity))
     #print('Sum of E after: ', bd.sum(grid.E))
 
