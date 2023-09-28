@@ -35,6 +35,7 @@ class PointSource:
         pulse: bool = False,
         cycle: int = 5,
         hanning_dt: float = 10.0,
+        verbose=False,
     ):
         """Create a LineSource with a gaussian profile
 
@@ -58,6 +59,7 @@ class PointSource:
         self.cycle = cycle
         self.frequency = 1.0 / period
         self.hanning_dt = hanning_dt if hanning_dt is not None else 0.5 / self.frequency
+        self.verbose = verbose
 
     def _register_grid(self, grid: Grid, x: Number, y: Number, z: Number):
         """Register a grid for the source.
@@ -107,7 +109,8 @@ class PointSource:
         else:
             src = self.amplitude * sin(2 * pi * q / self.period + self.phase_shift)
         self.grid.E[self.x, self.y, self.z, 2] += src
-        print("EEEE: ", [self.x, self.y, self.z, 2])
+        if self.verbose:
+            print("EEEE: ", [self.x, self.y, self.z, 2])
 
     def update_H(self):
         """Add the source to the magnetic field"""

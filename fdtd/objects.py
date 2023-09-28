@@ -18,6 +18,7 @@ from .typing_ import Tensorlike, ListOrSlice
 from .grid import Grid
 from .backend import backend as bd
 from . import constants as const
+from .device_utils import get_default_device
 import numpy as np
 import torch
 
@@ -276,7 +277,7 @@ class LearnableAnisotropicObject(Object):
     """ An object with anisotropic permittivity tensor """
 
     def __init__(
-        self, permittivity: Tensorlike, is_substrate=False, name: str = None
+        self, permittivity: Tensorlike, is_substrate=False, name: str = None, device=None
     ):
         """
         Args:
@@ -287,7 +288,10 @@ class LearnableAnisotropicObject(Object):
         """
         super().__init__(permittivity, name)
         # Takes the field energies (E and  H) as input and outputs modifiers for the permitivity.
-        self.nonlin_conv = torch.nn.Conv2d( 2, 3*3, kernel_size=1, stride=1, padding='same')
+        
+        self.device = device if device else get_default_device()
+
+        self.nonlin_conv = torch.nn.Conv2d( 2, 3*3, kernel_size=1, stride=1, padding='same', device=self.device)
         self.is_substrate = is_substrate
 
     def _register_grid(
@@ -332,7 +336,7 @@ class LearnableAnisotropicObject(Object):
             nonlin_modifier = torch.reshape(nonlin_modifier, s)
             nonlin_modifier = torch.permute(nonlin_modifier, (3, 4, 0, 1, 2))
         else:
-            nonlin_modifier = torch.Tensor([1.0])
+            nonlin_modifier = torch.tensor([1.0], device=self.device)
         
         
         self.grid.E[loc] += bd.reshape(

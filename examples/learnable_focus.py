@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-# Here we demonstrate learning parameters.
-
-import sys
-sys.path.append('/home/bij/Projects/fdtd/')
+# %%
 import fdtd
 import fdtd.backend as bd
 import matplotlib.pyplot as plt
@@ -12,22 +9,17 @@ import torch
 import torch.optim as optim
 
 
-# ## Set Backend
-fdtd.set_backend("torch")
+# Set Backend
+fdtd.set_backend("torch.cuda.float32")
 
 
-# ## Constants
+# %% Constants
 WAVELENGTH = 1550e-9
 WAVELENGTH2 = 1550e-8
 SPEED_LIGHT: float = 299_792_458.0  # [m/s] speed of light
 
 
-# ## Simulation
-
-# create FDTD Grid
-
-# In[4]:
-
+# %% create FDTD Grid
 
 grid = fdtd.Grid(
     (1.5e-5, 1.5e-5, 1),
@@ -42,10 +34,7 @@ pulse = False
 print('Grid Shape: ', grid.shape)
 
 
-# boundaries
-
-# In[5]:
-
+# %% boundaries
 
 # For some reason these don't reset properly.
 # # grid[0, :, :] = fdtd.PeriodicBoundary(name="xbounds")
@@ -97,6 +86,7 @@ max_train_steps = 100000
 em_steps = 200 
 visualizer_speed = 5
 
+# %% Optimize
 grid.H.requires_grad = True
 grid.H.retain_grad()
 grid.E.requires_grad = True
@@ -112,6 +102,9 @@ for train_step in range(max_train_steps):
     grid.E.detach()
     grid.H.detach()
     # Reset the grid
+    
+    fig = plt.figure()
+
     if(train_step % 10 == 0):
         for i in range(em_steps//visualizer_speed):
             grid.run(visualizer_speed, progress_bar=False)
@@ -120,8 +113,10 @@ for train_step in range(max_train_steps):
     else:
         grid.run(em_steps , progress_bar=False)
     print('Train step: ', train_step, '\tTime: ', grid.time_steps_passed)
+
     detector_energy = bd.sum(bd.sum(grid.E[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2 
                             + grid.H[midpoint_y-3:midpoint_y+3, midpoint_x+30, 0:1] ** 2, -1))
+    
     loss = -1.0*detector_energy
     print('Loss: ', loss, '\tDetector energy: ', detector_energy)
     optimizer.zero_grad()
@@ -134,3 +129,5 @@ for train_step in range(max_train_steps):
     #print('Sum of E after: ', bd.sum(grid.E))
 
 
+
+# %%
